@@ -1,0 +1,5 @@
+{
+  "name": "BitScribe",
+  "description": "A specialized transcription and AI summarization dashboard for Bitcoin conferences, featuring real-time AI analysis and chat-with-transcript capabilities.",
+  "requestFramePermissions": []
+}

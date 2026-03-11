@@ -1,0 +1,32 @@
+/**
+ * API Configuration
+ * Centralized configuration for backend API communication
+ */
+
+// API base URL - defaults to localhost for development
+// In production, this should be set via environment variable
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+export const config = {
+  apiUrl: API_BASE_URL,
+  endpoints: {
+    // Transcripts
+    conferences: '/api/v1/transcripts/conferences',
+    transcripts: '/api/v1/transcripts',
+    search: '/api/v1/transcripts/search',
+    
+    // AI
+    summary: '/api/v1/ai/summary',
+    chat: '/api/v1/ai/chat',
+    tts: '/api/v1/ai/tts',
+    entities: '/api/v1/ai/entities',
+    
+    // Health
+    health: '/api/v1/health',
+  },
+  
+  // Request timeout in milliseconds
+  timeout: 30000,
+};
+
+export default config;
