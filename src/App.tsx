@@ -12,6 +12,7 @@ import Types from "./pages/Types";
 import Sources from "./pages/Sources";
 import TranscriptDetail from "./pages/TranscriptDetail";
 import ConferenceArchive from "./pages/ConferenceArchive";
+import Library from "./pages/Library";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/sources" element={<Sources />} />
             <Route path="/transcript/:id" element={<TranscriptDetail />} />
             <Route path="/conferences" element={<ConferenceArchive />} />
+            <Route path="/library" element={<Library />} />
             <Route path="/about" element={<About />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

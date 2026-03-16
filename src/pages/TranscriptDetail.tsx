@@ -1,10 +1,14 @@
 ﻿import { useParams, Link } from "react-router-dom";
-import { useEffect, useState, useMemo } from "react";
-import { Calendar, Mic, Tag, Bookmark, Download, Check, Copy, FileText, MessageSquare, Headphones, Loader2, RefreshCw, ChevronDown, ChevronUp, ScrollText } from "lucide-react";
+import { useEffect, useState, useMemo, useRef } from "react";
+
+import { Calendar, Mic, Tag, Download, Copy, FileText, MessageSquare, Headphones, Loader2, RefreshCw, ChevronDown, ChevronUp, ScrollText } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TranscriptChat } from "@/components/TranscriptChat";
 import { TranscriptAudio } from "@/components/TranscriptAudio";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
+import { BookmarkButton } from "@/components/BookmarkButton";
+import { HighlightToolbar } from "@/components/HighlightToolbar";
+import { useBookmarks } from "@/hooks/useBookmarks";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { getTranscriptById } from "../../services/dataService";
@@ -23,7 +27,9 @@ const TranscriptDetail = () => {
   const [summaryError, setSummaryError] = useState(false);
   const [showFullTranscript, setShowFullTranscript] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("summary");
-  const [isSaved, setIsSaved] = useState(false);
+
+  const transcriptRef = useRef<HTMLDivElement>(null);
+  const { getHighlightsForTranscript } = useBookmarks();
 
   useEffect(() => {
     let cancelled = false;
@@ -177,11 +183,6 @@ const TranscriptDetail = () => {
     );
   }
 
-  const handleSave = () => {
-    setIsSaved(!isSaved);
-    toast(isSaved ? "Removed from saved transcripts" : "Saved to your collection");
-  };
-
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     toast("Link copied to clipboard!");
@@ -214,6 +215,7 @@ const TranscriptDetail = () => {
     ? transcriptParagraphs
     : transcriptParagraphs.slice(0, INITIAL_PARAGRAPHS);
   const hasMoreParagraphs = transcriptParagraphs.length > INITIAL_PARAGRAPHS;
+  const transcriptHighlights = id ? getHighlightsForTranscript(id) : [];
 
   const tabs: { id: TabType; label: string; icon: typeof FileText }[] = [
     { id: "summary", label: "Summary", icon: FileText },
@@ -268,17 +270,21 @@ const TranscriptDetail = () => {
 
               {/* Action bar */}
               <div className="flex items-center gap-2 p-3 rounded-lg border border-border bg-card relative flex-wrap">
-                <button
-                  onClick={handleSave}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono transition-colors ${
-                    isSaved
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  }`}
-                >
-                  {isSaved ? <Check className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
-                  {isSaved ? "Saved" : "Save"}
-                </button>
+                {transcript && (
+                  <BookmarkButton
+                    transcript={{
+                      id: transcript.id,
+                      title: transcript.title,
+                      speakers: Array.isArray(transcript.speakers)
+                        ? transcript.speakers.join(", ")
+                        : transcript.speakers,
+                      event_date: transcript.event_date,
+                      loc: location || "Unknown",
+                    }}
+                    size="md"
+                    showLabel
+                  />
+                )}
                 <button
                   onClick={handleShare}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
@@ -338,12 +344,13 @@ const TranscriptDetail = () => {
                     )}
                   </div>
                 </motion.div>
+
               )}
 
               {activeTab === "transcript" && (
                 <motion.div key="transcript" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                   {/* Transcript viewer */}
-                  <div className="rounded-xl border border-border bg-card overflow-hidden">
+                  <div ref={transcriptRef} className="relative rounded-xl border border-border bg-card overflow-hidden">
                     {/* Transcript header bar */}
                     <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-secondary/50">
                       <div className="flex items-center gap-3">
@@ -364,10 +371,22 @@ const TranscriptDetail = () => {
                     {/* Transcript body */}
                     <div className="divide-y divide-border/50">
                       {visibleParagraphs.map((para, idx) => (
+                        (() => {
+                          const hasMatchingHighlight = transcriptHighlights.some((highlight) =>
+                            highlight.text.endsWith("...")
+                              ? para.text.includes(highlight.text.slice(0, -3))
+                              : para.text.includes(highlight.text)
+                          );
+
+                          return (
                         <div
                           key={para.startLine}
                           className={`flex gap-0 ${
                             idx % 2 === 0 ? "bg-card" : "bg-secondary/20"
+                          } ${
+                            hasMatchingHighlight
+                              ? "bg-primary/10 ring-1 ring-primary/20"
+                              : ""
                           } hover:bg-primary/5 transition-colors group`}
                         >
                           {/* Line number gutter */}
@@ -376,11 +395,15 @@ const TranscriptDetail = () => {
                           </div>
                           {/* Paragraph text */}
                           <div className="flex-1 py-4 px-4 sm:px-5">
-                            <p className="text-sm sm:text-[15px] leading-relaxed text-foreground/90 font-[system-ui,_-apple-system,_'Segoe_UI',_sans-serif]">
+                            <p className={`text-sm sm:text-[15px] leading-relaxed text-foreground/90 font-[system-ui,_-apple-system,_'Segoe_UI',_sans-serif] ${
+                              hasMatchingHighlight ? "underline decoration-primary/40 decoration-2 underline-offset-4" : ""
+                            }`}>
                               {para.text}
                             </p>
                           </div>
                         </div>
+                          );
+                        })()
                       ))}
                     </div>
 
@@ -405,6 +428,14 @@ const TranscriptDetail = () => {
                           </button>
                         </div>
                       </div>
+                    )}
+
+                    {transcript && id && (
+                      <HighlightToolbar
+                        containerRef={transcriptRef}
+                        transcriptId={id}
+                        transcriptTitle={transcript.title}
+                      />
                     )}
                   </div>
                 </motion.div>

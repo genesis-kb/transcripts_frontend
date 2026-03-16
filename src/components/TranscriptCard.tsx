@@ -1,13 +1,15 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Calendar, Mic, Tag } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Talk } from "../../types";
 import { stripMarkdown } from "./MarkdownRenderer";
 import { formatDate } from "@/lib/utils";
+import { BookmarkButton } from "./BookmarkButton";
 
 export const TranscriptCard = ({ talk, conferenceName, index = 0 }: { talk: Talk; conferenceName?: string; index?: number }) => {
   return (
     <motion.div
+      className="relative"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.4 }}
@@ -56,6 +58,19 @@ export const TranscriptCard = ({ talk, conferenceName, index = 0 }: { talk: Talk
           )}
         </div>
       </Link>
+
+      <div className="absolute top-3 right-3 z-10">
+        <BookmarkButton
+          transcript={{
+            id: talk.id,
+            title: talk.title,
+            speakers: talk.speaker,
+            event_date: talk.date,
+            loc: conferenceName || "Unknown",
+          }}
+          size="sm"
+        />
+      </div>
     </motion.div>
   );
 };

@@ -1,10 +1,11 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
-import { Search, Menu, X, Zap, Globe, FileText, Users, Clock, ArrowRight } from "lucide-react";
+import { Search, Menu, X, Zap, Globe, FileText, Users, Clock, ArrowRight, Bookmark } from "lucide-react";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { searchTranscripts, getConferences } from "../../services/dataService";
 import type { Conference, SearchResult, PaginatedResponse } from "../../types";
+import { useBookmarks } from "@/hooks/useBookmarks";
 
 const navItems = [
   { label: "Explore", path: "/categories" },
@@ -70,6 +71,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches());
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Get bookmark count for nav badge
+  const { totalCount } = useBookmarks();
 
   // Fetch stats for ticker tape
   const [tickerConferences, setTickerConferences] = useState<Conference[]>([]);
@@ -218,6 +222,22 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 {item.label}
               </Link>
             ))}
+            <Link
+              to="/library"
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 relative ${
+                location.pathname === "/library"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              }`}
+            >
+              <Bookmark className="w-4 h-4" />
+              <span>Library</span>
+              {totalCount > 0 && (
+                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                  {totalCount > 99 ? "99+" : totalCount}
+                </span>
+              )}
+            </Link>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -269,6 +289,23 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     {item.label}
                   </Link>
                 ))}
+                <Link
+                  to="/library"
+                  onClick={() => setMobileOpen(false)}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 relative ${
+                    location.pathname === "/library"
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <Bookmark className="w-4 h-4" />
+                  <span>Library</span>
+                  {totalCount > 0 && (
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold ml-auto">
+                      {totalCount > 99 ? "99+" : totalCount}
+                    </span>
+                  )}
+                </Link>
               </nav>
             </motion.div>
           )}
