@@ -31,15 +31,15 @@ export const detailedHealthCheck = async (req, res) => {
   logger.info('Running detailed health check...');
 
   // Check all services in parallel
-  const [supabaseHealthy, geminiHealthy] = await Promise.all([
+  const [dbHealthy, geminiHealthy] = await Promise.all([
     supabaseService.healthCheck().catch(() => false),
     geminiService.healthCheck().catch(() => false),
   ]);
 
   const services = {
-    supabase: {
-      status: supabaseHealthy ? 'healthy' : 'unhealthy',
-      message: supabaseHealthy ? 'Connected' : 'Connection failed',
+    database: {
+      status: dbHealthy ? 'healthy' : 'unhealthy',
+      message: dbHealthy ? 'Connected' : 'Connection failed',
     },
     gemini: {
       status: geminiHealthy ? 'healthy' : 'unhealthy',
@@ -47,7 +47,7 @@ export const detailedHealthCheck = async (req, res) => {
     },
   };
 
-  const overallHealthy = supabaseHealthy && geminiHealthy;
+  const overallHealthy = dbHealthy && geminiHealthy;
 
   const response = {
     status: overallHealthy ? 'healthy' : 'degraded',

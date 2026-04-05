@@ -40,7 +40,7 @@ const validateEnvVars = (requiredVars) => {
 };
 
 // Validate critical environment variables
-const requiredVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'GEMINI_API_KEY'];
+const requiredVars = ['DATABASE_URL', 'GEMINI_API_KEY'];
 
 // Only validate in production, allow fallbacks in development
 if (process.env.NODE_ENV === 'production') {
@@ -59,10 +59,9 @@ const config = {
     isDevelopment: process.env.NODE_ENV === 'development',
   },
 
-  // Supabase configuration
-  supabase: {
-    url: process.env.SUPABASE_URL || '',
-    anonKey: process.env.SUPABASE_ANON_KEY || '',
+  // Database configuration (AWS RDS PostgreSQL)
+  database: {
+    url: process.env.DATABASE_URL || '',
   },
 
   // Gemini AI configuration

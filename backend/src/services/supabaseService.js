@@ -1,51 +1,58 @@
 /**
- * Supabase Service
- * Handles all database operations with Supabase
+ * Database Service
+ * Handles all database operations with PostgreSQL (AWS RDS)
+ *
+ * Note: File kept as supabaseService.js to avoid changing controller imports.
  */
 
-import { createClient } from '@supabase/supabase-js';
+import pg from 'pg';
 import config from '../config/index.js';
 import logger from '../config/logger.js';
 
-// Create Supabase client
-let supabase = null;
+const { Pool } = pg;
+
+let pool = null;
 
 /**
- * Initialize Supabase client
- * @returns {Object} Supabase client instance
+ * Get or create the connection pool
  */
-const getSupabaseClient = () => {
-  if (!supabase) {
-    if (!config.supabase.url || !config.supabase.anonKey) {
-      logger.error('Supabase configuration is missing. Please check your .env file.');
-      throw new Error('Supabase configuration is missing');
+const getPool = () => {
+  if (!pool) {
+    if (!config.database.url) {
+      logger.error('DATABASE_URL is missing. Please check your .env file.');
+      throw new Error('DATABASE_URL configuration is missing');
     }
 
-    supabase = createClient(config.supabase.url, config.supabase.anonKey, {
-      auth: {
-        persistSession: false, // Server-side, no session persistence needed
-      },
+    pool = new Pool({
+      connectionString: config.database.url,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+      ssl: { rejectUnauthorized: false },
     });
 
-    logger.info('Supabase client initialized successfully');
+    pool.on('error', (err) => {
+      logger.error('Unexpected pool error:', { error: err.message });
+    });
+
+    logger.info('PostgreSQL connection pool initialized');
   }
 
-  return supabase;
+  return pool;
 };
 
 /**
- * Wrap Supabase operations with timeout
- * @param {Promise} promise - Supabase operation promise
- * @param {number} timeoutMs - Timeout in milliseconds
- * @returns {Promise} Wrapped promise with timeout
+ * Execute a query with timeout
  */
-const withTimeout = (promise, timeoutMs = 10000) => {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Database operation timed out')), timeoutMs)
-    ),
-  ]);
+const query = async (text, params = [], timeoutMs = 10000) => {
+  const client = await getPool().connect();
+  try {
+    await client.query(`SET statement_timeout = ${timeoutMs}`);
+    const result = await client.query(text, params);
+    return result;
+  } finally {
+    client.release();
+  }
 };
 
 /**
@@ -53,24 +60,14 @@ const withTimeout = (promise, timeoutMs = 10000) => {
  * @returns {Promise<Array>} Array of transcript records
  */
 export const fetchAllTranscripts = async () => {
-  const client = getSupabaseClient();
+  logger.info('Fetching all transcripts from database...');
 
-  logger.info('Fetching all transcripts from Supabase...');
-
-  const { data, error } = await withTimeout(
-    client
-      .from('transcripts')
-      .select('*')
-      .order('event_date', { ascending: false })
+  const result = await query(
+    `SELECT * FROM transcripts ORDER BY event_date DESC`
   );
 
-  if (error) {
-    logger.error('Supabase fetch error:', { error: error.message, details: error.details });
-    throw new Error(`Database error: ${error.message}`);
-  }
-
-  logger.info(`Successfully fetched ${data?.length || 0} transcripts`);
-  return data || [];
+  logger.info(`Successfully fetched ${result.rows.length} transcripts`);
+  return result.rows;
 };
 
 /**
@@ -79,83 +76,70 @@ export const fetchAllTranscripts = async () => {
  * @returns {Promise<Object|null>} Transcript record or null
  */
 export const fetchTranscriptById = async (id) => {
-  const client = getSupabaseClient();
-
   logger.info(`Fetching transcript with ID: ${id}`);
 
-  const { data, error } = await withTimeout(
-    client
-      .from('transcripts')
-      .select('*')
-      .eq('id', id)
-      .single()
+  const result = await query(
+    `SELECT * FROM transcripts WHERE id = $1`,
+    [id]
   );
 
-  if (error) {
-    if (error.code === 'PGRST116') {
-      logger.warn(`Transcript not found: ${id}`);
-      return null;
-    }
-    logger.error('Supabase fetch error:', { error: error.message });
-    throw new Error(`Database error: ${error.message}`);
+  if (result.rows.length === 0) {
+    logger.warn(`Transcript not found: ${id}`);
+    return null;
   }
 
-  return data;
+  return result.rows[0];
 };
 
 /**
- * Search transcripts using PostgreSQL Full-Text Search via Supabase RPC.
+ * Search transcripts using PostgreSQL Full-Text Search.
  * Returns ranked results with highlighted snippets.
- * @param {string} query - Search query
+ * @param {string} searchQuery - Search query
  * @param {number} limit - Max results per page
  * @param {number} offset - Offset for pagination
- * @returns {Promise<Array>} Array of matching transcript search results
+ * @returns {Promise<{results: Array, total: number}>}
  */
-export const searchTranscripts = async (query, limit = 20, offset = 0) => {
-  const client = getSupabaseClient();
-
-  // Sanitize: strip characters that could interfere with tsquery parsing.
-  // plainto_tsquery on the DB side already handles safe conversion, but we
-  // still trim and cap length on the application side.
-  const sanitizedQuery = query
+export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => {
+  const sanitized = searchQuery
     .replace(/[<>"'`;(){}[\]\\]/g, '')
     .trim()
     .substring(0, 200);
 
-  if (!sanitizedQuery || sanitizedQuery.length < 2) {
+  if (!sanitized || sanitized.length < 2) {
     logger.warn('Search query too short or invalid after sanitization');
     return { results: [], total: 0 };
   }
 
-  logger.info(`FTS searching transcripts for: "${sanitizedQuery}" (limit=${limit}, offset=${offset})`);
+  logger.info(`FTS searching for: "${sanitized}" (limit=${limit}, offset=${offset})`);
 
-  // Run both RPC calls in parallel for speed.
   const [searchResult, countResult] = await Promise.all([
-    withTimeout(
-      client.rpc('search_transcripts_fts', {
-        search_query: sanitizedQuery,
-        result_limit: limit,
-        result_offset: offset,
-      })
+    query(
+      `SELECT
+        id, title, speakers, event_date, loc, tags, categories,
+        conference, topics, channel_name, status,
+        ts_rank(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(raw_text, '') || ' ' || coalesce(corrected_text, '')),
+                plainto_tsquery('english', $1)) AS rank,
+        ts_headline('english', coalesce(corrected_text, raw_text, ''),
+                    plainto_tsquery('english', $1),
+                    'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20') AS snippet
+      FROM transcripts
+      WHERE to_tsvector('english', coalesce(title, '') || ' ' || coalesce(raw_text, '') || ' ' || coalesce(corrected_text, ''))
+            @@ plainto_tsquery('english', $1)
+      ORDER BY rank DESC
+      LIMIT $2 OFFSET $3`,
+      [sanitized, limit, offset]
     ),
-    withTimeout(
-      client.rpc('search_transcripts_fts_count', {
-        search_query: sanitizedQuery,
-      })
+    query(
+      `SELECT COUNT(*) AS total
+      FROM transcripts
+      WHERE to_tsvector('english', coalesce(title, '') || ' ' || coalesce(raw_text, '') || ' ' || coalesce(corrected_text, ''))
+            @@ plainto_tsquery('english', $1)`,
+      [sanitized]
     ),
   ]);
 
-  if (searchResult.error) {
-    logger.error('Supabase FTS search error:', { error: searchResult.error.message });
-    throw new Error(`Search error: ${searchResult.error.message}`);
-  }
-
-  if (countResult.error) {
-    logger.warn('Supabase FTS count error (non-fatal):', { error: countResult.error.message });
-  }
-
-  const results = searchResult.data || [];
-  const total = countResult.data ?? results.length;
+  const results = searchResult.rows;
+  const total = parseInt(countResult.rows[0]?.total || '0', 10);
 
   logger.info(`FTS search returned ${results.length} results (total: ${total})`);
   return { results, total };
@@ -164,24 +148,20 @@ export const searchTranscripts = async (query, limit = 20, offset = 0) => {
 /**
  * Get cached AI content (summary, etc.) for a transcript
  * @param {string} transcriptId - Transcript ID
- * @param {string} type - Content type (summary, timeline, etc.)
+ * @param {string} type - Content type (summary, entities, etc.)
  * @returns {Promise<string|null>} Cached content or null
  */
 export const getCachedAIContent = async (transcriptId, type) => {
-  const client = getSupabaseClient();
-
-  const { data, error } = await client
-    .from('ai_cache')
-    .select('content')
-    .eq('transcript_id', transcriptId)
-    .eq('type', type)
-    .single();
-
-  if (error && error.code !== 'PGRST116') {
-    logger.warn('Cache lookup error:', { error: error.message });
+  try {
+    const result = await query(
+      `SELECT content FROM ai_cache WHERE transcript_id = $1 AND type = $2`,
+      [transcriptId, type]
+    );
+    return result.rows[0]?.content || null;
+  } catch (err) {
+    logger.warn('Cache lookup error:', { error: err.message });
+    return null;
   }
-
-  return data?.content || null;
 };
 
 /**
@@ -191,38 +171,31 @@ export const getCachedAIContent = async (transcriptId, type) => {
  * @param {string} content - Content to cache
  */
 export const cacheAIContent = async (transcriptId, type, content) => {
-  const client = getSupabaseClient();
-
-  const { error } = await client
-    .from('ai_cache')
-    .upsert({
-      transcript_id: transcriptId,
-      type,
-      content,
-      created_at: new Date().toISOString(),
-    }, {
-      onConflict: 'transcript_id,type',
-    });
-
-  if (error) {
-    logger.warn('Cache store error:', { error: error.message });
-    // Don't throw - caching failure shouldn't break the main flow
-  } else {
+  try {
+    await query(
+      `INSERT INTO ai_cache (transcript_id, type, content, created_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (transcript_id, type)
+       DO UPDATE SET content = EXCLUDED.content, created_at = NOW()`,
+      [transcriptId, type, content]
+    );
     logger.debug(`Cached ${type} for transcript ${transcriptId}`);
+  } catch (err) {
+    logger.warn('Cache store error:', { error: err.message });
+    // Don't throw - caching failure shouldn't break the main flow
   }
 };
 
 /**
- * Health check for Supabase connection
+ * Health check for database connection
  * @returns {Promise<boolean>} True if connection is healthy
  */
 export const healthCheck = async () => {
   try {
-    const client = getSupabaseClient();
-    const { error } = await client.from('transcripts').select('id').limit(1);
-    return !error;
+    const result = await query('SELECT 1');
+    return result.rows.length > 0;
   } catch (err) {
-    logger.error('Supabase health check failed:', { error: err.message });
+    logger.error('Database health check failed:', { error: err.message });
     return false;
   }
 };
