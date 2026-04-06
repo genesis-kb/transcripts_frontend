@@ -2,10 +2,8 @@ import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 
 const sidebarLinks = [
-  { label: "Categories", path: "/categories" },
   { label: "Topics", path: "/topics" },
   { label: "Speakers", path: "/speakers" },
-  { label: "Formats", path: "/types" },
   { label: "Sources", path: "/sources" },
 ];
 

@@ -14,6 +14,7 @@ export const config = {
     conferences: '/api/v1/transcripts/conferences',
     transcripts: '/api/v1/transcripts',
     search: '/api/v1/transcripts/search',
+    meta: '/api/v1/transcripts/meta',
     
     // AI
     summary: '/api/v1/ai/summary',

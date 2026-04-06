@@ -8,7 +8,7 @@ import type { Conference, SearchResult, PaginatedResponse } from "../../types";
 import { useBookmarks } from "@/hooks/useBookmarks";
 
 const navItems = [
-  { label: "Explore", path: "/categories" },
+  { label: "Explore", path: "/topics" },
   { label: "Conferences", path: "/conferences" },
   { label: "About", path: "/about" },
 ];

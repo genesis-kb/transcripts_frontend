@@ -86,16 +86,15 @@ export const processSpeakers = (speakers) => {
  * @param {any} categories - Fallback categories data
  * @returns {string[]} Array of tags
  */
-export const processTags = (tags, categories) => {
-  if (Array.isArray(tags) && tags.length > 0) {
-    return tags;
+export const processTags = (tags, categories, topics) => {
+  // Combine all available tag sources, preferring topics
+  const combined = new Set();
+  for (const arr of [topics, tags, categories]) {
+    if (Array.isArray(arr)) {
+      arr.forEach((t) => { if (t) combined.add(t); });
+    }
   }
-
-  if (Array.isArray(categories) && categories.length > 0) {
-    return categories;
-  }
-
-  return [];
+  return [...combined];
 };
 
 /**
@@ -161,11 +160,12 @@ export const transformToConferences = (rows) => {
       id: row.id,
       title: row.title || 'Untitled Session',
       speaker: processSpeakers(row.speakers),
+      conference: row.conference || row.channel_name || '',
       duration: 'N/A',
       date: formattedDate,
       transcript: getBestTranscriptContent(row),
       summary: row.summary || null,
-      tags: processTags(row.tags, row.categories),
+      tags: processTags(row.tags, row.categories, row.topics),
       transcriptBy: 'BitScribe',
     };
 

@@ -1,14 +1,21 @@
 import { CategorySidebar } from "@/components/CategorySidebar";
-import { categories } from "@/data/mockData";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-
-// Derive topics from categories
-const topics = categories.flatMap((cat) =>
-  cat.subcategories.map((sub) => ({ name: sub.name, count: sub.count, category: cat.name }))
-).sort((a, b) => b.count - a.count);
+import { Loader2 } from "lucide-react";
+import { getTranscriptMeta, type TranscriptMeta } from "../../services/dataService";
 
 const Topics = () => {
+  const [topics, setTopics] = useState<TranscriptMeta["topics"]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getTranscriptMeta().then((meta) => {
+      setTopics(meta.topics);
+      setLoading(false);
+    });
+  }, []);
+
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8">
       <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono mb-6">
@@ -22,26 +29,36 @@ const Topics = () => {
 
         <div className="flex-1 min-w-0">
           <h1 className="font-display text-3xl font-bold mb-2">Topics</h1>
-          <p className="text-muted-foreground mb-8">Browse specific technical topics across all categories.</p>
+          <p className="text-muted-foreground mb-8">Browse specific technical topics across all transcripts.</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {topics.map((topic, i) => (
-              <motion.div
-                key={`${topic.name}-${topic.category}`}
-                initial={{ opacity: 0, y: 8 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.02 }}
-                className="p-4 rounded-lg border border-border bg-card hover:border-primary/30 transition-colors"
-              >
-                <div className="font-medium text-sm mb-1">{topic.name}</div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{topic.category}</span>
-                  <span className="font-mono text-xs text-muted-foreground">{topic.count}</span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex items-center gap-2 py-8">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground">Loading topics...</span>
+            </div>
+          ) : topics.length === 0 ? (
+            <p className="text-muted-foreground">No topics found.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {topics.map((topic, i) => (
+                <motion.div
+                  key={topic.slug}
+                  initial={{ opacity: 0, y: 8 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.02 }}
+                >
+                  <Link
+                    to={`/search?q=${encodeURIComponent(topic.name)}`}
+                    className="block p-4 rounded-lg border border-border bg-card hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer"
+                  >
+                    <div className="font-medium text-sm mb-1">{topic.name}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{topic.count} transcripts</div>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -126,23 +126,21 @@ const TranscriptDetail = () => {
     const lines = transcriptBody.split("\n");
     const paragraphs: { text: string; startLine: number }[] = [];
     let current: string[] = [];
-    let startLine = 1;
+    let paraIndex = 1;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (line === "") {
         if (current.length > 0) {
-          paragraphs.push({ text: current.join(" "), startLine });
+          paragraphs.push({ text: current.join(" "), startLine: paraIndex++ });
           current = [];
         }
-        startLine = i + 2;
       } else {
-        if (current.length === 0) startLine = i + 1;
         current.push(line);
       }
     }
     if (current.length > 0) {
-      paragraphs.push({ text: current.join(" "), startLine });
+      paragraphs.push({ text: current.join(" "), startLine: paraIndex });
     }
     return paragraphs;
   }, [transcriptBody]);

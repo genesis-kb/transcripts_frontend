@@ -56,6 +56,55 @@ const query = async (text, params = [], timeoutMs = 10000) => {
 };
 
 /**
+ * Break text into paragraphs of ~5 sentences each.
+ * If the last chunk has fewer than 3 sentences, merge it into the previous one.
+ */
+const addParagraphBreaks = (text) => {
+  if (!text) return text;
+
+  // Split into sentences (keep the delimiter attached)
+  const sentences = text.split(/(?<=[.?!])\s+/).filter((s) => s.trim());
+  if (sentences.length <= 6) return text;
+
+  const paragraphs = [];
+  for (let i = 0; i < sentences.length; i += 5) {
+    paragraphs.push(sentences.slice(i, i + 5).join(' '));
+  }
+
+  // If last paragraph is too short, merge it with the previous one
+  if (paragraphs.length > 1 && paragraphs[paragraphs.length - 1].split(/[.?!]/).length <= 3) {
+    const last = paragraphs.pop();
+    paragraphs[paragraphs.length - 1] += ' ' + last;
+  }
+
+  return paragraphs.join('\n\n');
+};
+
+/**
+ * Strip speaker/timestamp labels like "Speaker 0: 00:01:23" from transcript text.
+ * Handles labels at start, inline, and with surrounding whitespace/newlines.
+ */
+const stripSpeakerLabels = (text) => {
+  if (!text) return text;
+  return text
+    .replace(/\n*Speaker \d+:\s*\d{2}:\d{2}:\d{2}\n*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
+/**
+ * Format a transcript row — clean up labels and add paragraph breaks.
+ */
+const formatTranscript = (row) => {
+  if (!row) return row;
+  return {
+    ...row,
+    raw_text: row.raw_text ? addParagraphBreaks(stripSpeakerLabels(row.raw_text)) : row.raw_text,
+    corrected_text: row.corrected_text ? addParagraphBreaks(stripSpeakerLabels(row.corrected_text)) : row.corrected_text,
+  };
+};
+
+/**
  * Fetch all transcripts from the database
  * @returns {Promise<Array>} Array of transcript records
  */
@@ -67,7 +116,7 @@ export const fetchAllTranscripts = async () => {
   );
 
   logger.info(`Successfully fetched ${result.rows.length} transcripts`);
-  return result.rows;
+  return result.rows.map(formatTranscript);
 };
 
 /**
@@ -88,7 +137,7 @@ export const fetchTranscriptById = async (id) => {
     return null;
   }
 
-  return result.rows[0];
+  return formatTranscript(result.rows[0]);
 };
 
 /**
@@ -200,6 +249,98 @@ export const healthCheck = async () => {
   }
 };
 
+/**
+ * Fetch aggregated metadata from all transcripts:
+ * unique speakers, topics, categories (conferences), stats.
+ * Derived entirely from actual DB data.
+ */
+export const fetchTranscriptMeta = async () => {
+  logger.info('Fetching transcript metadata aggregates...');
+
+  const result = await query(`
+    SELECT
+      speakers, tags, topics, conference, channel_name, categories, loc
+    FROM transcripts
+  `);
+
+  const rows = result.rows;
+  const speakerMap = {};
+  const topicMap = {};
+  const conferenceSet = {};
+  const tagSet = {};
+
+  for (const row of rows) {
+    // Speakers
+    if (Array.isArray(row.speakers)) {
+      for (const s of row.speakers) {
+        if (!s) continue;
+        if (!speakerMap[s]) speakerMap[s] = { name: s, transcriptCount: 0, topics: new Set() };
+        speakerMap[s].transcriptCount++;
+        if (Array.isArray(row.topics)) row.topics.forEach((t) => speakerMap[s].topics.add(t));
+      }
+    }
+
+    // Topics
+    if (Array.isArray(row.topics)) {
+      for (const t of row.topics) {
+        if (!t) continue;
+        topicMap[t] = (topicMap[t] || 0) + 1;
+      }
+    }
+
+    // Tags — combine tags and topics since tags is often empty
+    for (const arr of [row.tags, row.topics]) {
+      if (Array.isArray(arr)) {
+        for (const t of arr) {
+          if (!t) continue;
+          tagSet[t] = (tagSet[t] || 0) + 1;
+        }
+      }
+    }
+
+    // Conferences (from conference or channel_name field)
+    const conf = row.conference || row.channel_name;
+    if (conf) {
+      if (!conferenceSet[conf]) conferenceSet[conf] = { name: conf, count: 0, loc: row.loc };
+      conferenceSet[conf].count++;
+    }
+  }
+
+  const speakers = Object.values(speakerMap).map((s) => ({
+    name: s.name,
+    slug: s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    transcriptCount: s.transcriptCount,
+    topics: [...s.topics].slice(0, 5),
+  })).sort((a, b) => b.transcriptCount - a.transcriptCount);
+
+  const topics = Object.entries(topicMap).map(([name, count]) => ({
+    name,
+    slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    count,
+  })).sort((a, b) => b.count - a.count);
+
+  const conferences = Object.values(conferenceSet).map((c) => ({
+    name: c.name,
+    slug: c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    sessions: c.count,
+    location: c.loc || '',
+  })).sort((a, b) => b.sessions - a.sessions);
+
+  const tags = Object.entries(tagSet).map(([name, count]) => ({
+    name,
+    count,
+  })).sort((a, b) => b.count - a.count);
+
+  const stats = {
+    totalTranscripts: rows.length,
+    totalSpeakers: speakers.length,
+    totalConferences: conferences.length,
+    totalTopics: topics.length,
+  };
+
+  return { speakers, topics, conferences, tags, stats };
+};
+
 export default {
   fetchAllTranscripts,
   fetchTranscriptById,
@@ -207,4 +348,5 @@ export default {
   getCachedAIContent,
   cacheAIContent,
   healthCheck,
+  fetchTranscriptMeta,
 };

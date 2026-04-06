@@ -18,7 +18,7 @@ export const TranscriptCard = ({ talk, conferenceName, index = 0 }: { talk: Talk
         to={`/transcript/${talk.id}`}
         className="group block p-5 rounded-xl border border-border bg-card hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300"
       >
-        <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono mb-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono mb-2 pr-8">
           {conferenceName && <span>{conferenceName}</span>}
           <span className="ml-auto flex items-center gap-1">
             <Calendar className="w-3 h-3" />
@@ -59,7 +59,7 @@ export const TranscriptCard = ({ talk, conferenceName, index = 0 }: { talk: Talk
         </div>
       </Link>
 
-      <div className="absolute top-3 right-3 z-10">
+      <div className="absolute top-2 right-2 z-10">
         <BookmarkButton
           transcript={{
             id: talk.id,

@@ -20,6 +20,16 @@ router.get(
 );
 
 /**
+ * @route   GET /api/v1/transcripts/meta
+ * @desc    Get aggregated metadata (speakers, topics, conferences, stats)
+ * @access  Public
+ */
+router.get(
+  '/meta',
+  asyncHandler(transcriptController.getMeta)
+);
+
+/**
  * @route   GET /api/v1/transcripts/search
  * @desc    Search transcripts by query
  * @access  Public

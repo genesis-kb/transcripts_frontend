@@ -88,9 +88,22 @@ export const searchTranscripts = async (req, res) => {
   });
 };
 
+/**
+ * Get aggregated metadata (speakers, topics, conferences, stats)
+ * GET /api/v1/transcripts/meta
+ */
+export const getMeta = async (req, res) => {
+  logger.info('Controller: Getting transcript metadata');
+
+  const meta = await supabaseService.fetchTranscriptMeta();
+
+  sendSuccess(res, meta);
+};
+
 export default {
   getConferences,
   getAllTranscripts,
   getTranscriptById,
   searchTranscripts,
+  getMeta,
 };
