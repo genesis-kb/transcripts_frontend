@@ -116,6 +116,8 @@ const TranscriptDetail = () => {
   const displayDate = transcript?.event_date || "";
 
   const location = useMemo(() => {
+    if (transcript?.conference) return transcript.conference;
+    if (transcript?.channel_name) return transcript.channel_name;
     if (!transcript?.loc) return "";
     return transcript.loc.split(/[-_]/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
   }, [transcript]);

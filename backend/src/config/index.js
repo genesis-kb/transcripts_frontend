@@ -40,7 +40,7 @@ const validateEnvVars = (requiredVars) => {
 };
 
 // Validate critical environment variables
-const requiredVars = ['DATABASE_URL', 'GEMINI_API_KEY'];
+const requiredVars = ['DATABASE_URL'];
 
 // Only validate in production, allow fallbacks in development
 if (process.env.NODE_ENV === 'production') {

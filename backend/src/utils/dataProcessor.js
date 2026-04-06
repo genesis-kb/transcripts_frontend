@@ -137,19 +137,16 @@ export const transformToConferences = (rows) => {
     // Parse date
     const { year, formattedDate } = parseDate(row.event_date);
 
-    // Clean location
-    const location = cleanLocation(row.loc);
-
-    // Generate conference ID and name
-    const confId = generateConferenceId(location, year);
-    const confName = `${location} ${year}`;
+    // Use actual conference/channel name, fall back to loc
+    const confName = row.conference || row.channel_name || cleanLocation(row.loc);
+    const confId = confName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
     // Create conference if it doesn't exist
     if (!conferencesMap.has(confId)) {
       conferencesMap.set(confId, {
         id: confId,
         name: confName,
-        location,
+        location: cleanLocation(row.loc),
         year,
         talks: [],
       });

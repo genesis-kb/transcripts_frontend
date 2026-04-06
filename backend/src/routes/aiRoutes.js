@@ -1,70 +1,62 @@
 /**
  * AI Routes
- * Defines all AI-related API endpoints
+ * Only summary endpoint remains — uses pre-generated summaries from DB.
+ * Chat, TTS, and entities are disabled.
  */
 
 import { Router } from 'express';
-import * as aiController from '../controllers/aiController.js';
-import {
-  asyncHandler,
-  validate,
-  validationRules,
-  aiLimiter,
-  ttsLimiter,
-} from '../middleware/index.js';
+import { sendSuccess } from '../utils/responseHelper.js';
+import { APIError } from '../middleware/errorHandler.js';
+import { asyncHandler } from '../middleware/index.js';
+import * as supabaseService from '../services/supabaseService.js';
+import logger from '../config/logger.js';
 
 const router = Router();
 
 /**
  * @route   POST /api/v1/ai/summary
- * @desc    Generate summary for a transcript
- * @access  Public (rate limited)
+ * @desc    Return pre-generated summary from DB (no Gemini call)
  */
 router.post(
   '/summary',
-  aiLimiter,
-  validationRules.generateSummary,
-  validate,
-  asyncHandler(aiController.generateSummary)
+  asyncHandler(async (req, res) => {
+    const { transcriptId } = req.body;
+
+    if (!transcriptId) {
+      throw new APIError('transcriptId is required', 400, 'VALIDATION_ERROR');
+    }
+
+    logger.info(`Fetching DB summary for transcript: ${transcriptId}`);
+
+    const transcript = await supabaseService.fetchTranscriptById(transcriptId);
+
+    if (!transcript) {
+      throw new APIError('Transcript not found', 404, 'NOT_FOUND');
+    }
+
+    const summary = transcript.summary || null;
+
+    if (!summary) {
+      return sendSuccess(res, { summary: 'No summary available for this transcript.', cached: false });
+    }
+
+    sendSuccess(res, { summary, cached: true });
+  })
 );
 
 /**
- * @route   POST /api/v1/ai/chat
- * @desc    Chat with transcript context
- * @access  Public (rate limited)
+ * Chat, TTS, and entities are disabled.
  */
-router.post(
-  '/chat',
-  aiLimiter,
-  validationRules.chat,
-  validate,
-  asyncHandler(aiController.chat)
-);
+router.post('/chat', (req, res) => {
+  res.status(503).json({ success: false, message: 'Chat is currently disabled.' });
+});
 
-/**
- * @route   POST /api/v1/ai/tts
- * @desc    Generate speech from text
- * @access  Public (strictly rate limited)
- */
-router.post(
-  '/tts',
-  ttsLimiter,
-  validationRules.tts,
-  validate,
-  asyncHandler(aiController.generateSpeech)
-);
+router.post('/tts', (req, res) => {
+  res.status(503).json({ success: false, message: 'Text-to-speech is currently disabled.' });
+});
 
-/**
- * @route   POST /api/v1/ai/entities
- * @desc    Extract entities from transcript
- * @access  Public (rate limited)
- */
-router.post(
-  '/entities',
-  aiLimiter,
-  validationRules.generateSummary, // Same validation as summary
-  validate,
-  asyncHandler(aiController.extractEntities)
-);
+router.post('/entities', (req, res) => {
+  res.status(503).json({ success: false, message: 'Entity extraction is currently disabled.' });
+});
 
 export default router;
