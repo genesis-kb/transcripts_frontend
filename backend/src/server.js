@@ -29,8 +29,7 @@ const server = app.listen(config.server.port, () => {
   // Log configuration in development
   if (config.server.isDevelopment) {
     logger.debug('Configuration:', {
-      supabaseUrl: config.supabase.url ? '✓ Set' : '✗ Missing',
-      supabaseKey: config.supabase.anonKey ? '✓ Set' : '✗ Missing',
+      databaseUrl: config.database.url ? '✓ Set' : '✗ Missing',
       geminiKey: config.gemini.apiKey ? '✓ Set' : '✗ Missing',
       corsOrigins: config.cors.origins,
     });
