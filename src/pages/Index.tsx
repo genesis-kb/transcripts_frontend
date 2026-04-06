@@ -1,46 +1,11 @@
 import { Link } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, Zap, FileText, Users, Headphones, MessageSquare, Globe } from "lucide-react";
-import { categories, streamFragments } from "@/data/mockData";
 import { FeaturedTranscripts } from "@/components/FeaturedTranscripts";
 import { useRef, useState, useEffect, useMemo } from "react";
 import { getConferences } from "../../services/dataService";
+import { getTranscriptMeta, type TranscriptMeta } from "../../services/dataService";
 import type { Conference } from "../../types";
-
-const DataStream = () => {
-  const [visibleLines, setVisibleLines] = useState<number[]>([]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setVisibleLines((prev) => {
-        const next = [...prev, Math.floor(Math.random() * streamFragments.length)];
-        if (next.length > 6) next.shift();
-        return next;
-      });
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-      <div className="absolute right-0 top-0 w-[60%] h-full opacity-[0.07]">
-        {visibleLines.map((lineIdx, i) => (
-          <motion.div
-            key={`${lineIdx}-${i}`}
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8 }}
-            className="font-mono text-xs leading-loose text-foreground"
-            style={{ marginTop: `${i * 48 + 40}px`, marginLeft: `${i * 20}px` }}
-          >
-            {streamFragments[lineIdx]}
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 const StatBlock = ({ icon: Icon, value, label }: { icon: any; value: string; label: string }) => (
   <div className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card">
@@ -61,27 +26,38 @@ const Index = () => {
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 100]);
 
   const [conferences, setConferences] = useState<Conference[]>([]);
+  const [meta, setMeta] = useState<TranscriptMeta | null>(null);
 
   useEffect(() => {
     getConferences().then(setConferences);
+    getTranscriptMeta().then(setMeta);
   }, []);
 
   const stats = useMemo(() => {
+    if (meta) {
+      return {
+        transcripts: meta.stats.totalTranscripts > 0 ? meta.stats.totalTranscripts.toLocaleString() : "—",
+        speakers: meta.stats.totalSpeakers > 0 ? String(meta.stats.totalSpeakers) : "—",
+        archives: meta.stats.totalConferences > 0 ? String(meta.stats.totalConferences) : "—",
+        topics: meta.stats.totalTopics > 0 ? String(meta.stats.totalTopics) : "—",
+      };
+    }
     const totalTalks = conferences.reduce((sum, c) => sum + c.talks.length, 0);
     const uniqueSpeakers = new Set(conferences.flatMap((c) => c.talks.map((t) => t.speaker))).size;
     return {
       transcripts: totalTalks > 0 ? totalTalks.toLocaleString() : "—",
-      speakers: uniqueSpeakers > 0 ? `${uniqueSpeakers}+` : "—",
+      speakers: uniqueSpeakers > 0 ? String(uniqueSpeakers) : "—",
       archives: conferences.length > 0 ? String(conferences.length) : "—",
+      topics: "—",
     };
-  }, [conferences]);
+  }, [conferences, meta]);
+
+  const topics = meta?.topics?.slice(0, 10) || [];
 
   return (
     <div>
       {/* Hero */}
       <section ref={heroRef} className="relative min-h-[85vh] flex items-center overflow-hidden noise-overlay">
-        <DataStream />
-
         {/* Geometric accent */}
         <div className="absolute -right-32 top-1/4 w-[500px] h-[500px] rounded-full border border-primary/10 opacity-30" />
         <div className="absolute -right-16 top-1/3 w-[300px] h-[300px] rounded-full border border-signal/10 opacity-20" />
@@ -129,7 +105,7 @@ const Index = () => {
               className="flex flex-wrap gap-3"
             >
               <Link
-                to="/categories"
+                to="/topics"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-display font-semibold text-sm glow-bitcoin hover:scale-[1.02] transition-transform"
               >
                 Explore Transcripts
@@ -153,8 +129,8 @@ const Index = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatBlock icon={FileText} value={stats.transcripts} label="Transcripts" />
             <StatBlock icon={Users} value={stats.speakers} label="Speakers" />
-            <StatBlock icon={Headphones} value={stats.archives} label="Conference Archives" />
-            <StatBlock icon={Globe} value="4" label="Languages" />
+            <StatBlock icon={Headphones} value={stats.archives} label="Sources" />
+            <StatBlock icon={MessageSquare} value={stats.topics} label="Topics" />
           </div>
         </div>
       </section>
@@ -162,42 +138,44 @@ const Index = () => {
       {/* Featured transcripts */}
       <FeaturedTranscripts />
 
-      {/* Categories preview */}
-      <section className="border-t border-border bg-secondary/20">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-16">
-          <div className="flex items-end justify-between mb-8">
-            <div>
-              <h2 className="font-display text-2xl font-bold mb-1">Explore by Category</h2>
-              <p className="text-sm text-muted-foreground">Dive into the Bitcoin technical ecosystem</p>
+      {/* Topics preview */}
+      {topics.length > 0 && (
+        <section className="border-t border-border bg-secondary/20">
+          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-16">
+            <div className="flex items-end justify-between mb-8">
+              <div>
+                <h2 className="font-display text-2xl font-bold mb-1">Explore by Topic</h2>
+                <p className="text-sm text-muted-foreground">Dive into the Bitcoin technical ecosystem</p>
+              </div>
+              <Link to="/topics" className="text-sm font-mono text-primary hover:underline flex items-center gap-1">
+                All topics <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
-            <Link to="/categories" className="text-sm font-mono text-primary hover:underline flex items-center gap-1">
-              All categories <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {categories.slice(0, 10).map((cat, i) => (
-              <motion.div
-                key={cat.slug}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.04 }}
-              >
-                <Link
-                  to={`/categories#${cat.slug}`}
-                  className="group block p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-all"
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {topics.map((topic, i) => (
+                <motion.div
+                  key={topic.slug}
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.04 }}
                 >
-                  <div className="font-display font-semibold text-sm group-hover:text-primary transition-colors mb-1">{cat.name}</div>
-                  <div className="font-mono text-xs text-muted-foreground">{cat.count} transcripts</div>
-                </Link>
-              </motion.div>
-            ))}
+                  <Link
+                    to={`/topics#${topic.slug}`}
+                    className="group block p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-all"
+                  >
+                    <div className="font-display font-semibold text-sm group-hover:text-primary transition-colors mb-1">{topic.name}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{topic.count} transcripts</div>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* Why transcripts / history */}
+      {/* Why transcripts */}
       <section className="max-w-[1400px] mx-auto px-4 sm:px-6 py-16">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
@@ -227,17 +205,17 @@ const Index = () => {
           <div className="relative">
             <div className="rounded-2xl border border-border bg-card p-6 scanline">
               <div className="font-mono text-xs text-muted-foreground space-y-2">
-                {streamFragments.slice(0, 5).map((frag, i) => (
+                {(meta?.topics?.slice(0, 5) || []).map((topic, i) => (
                   <motion.div
-                    key={i}
+                    key={topic.slug}
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.2 }}
                     className="flex items-start gap-2"
                   >
-                    <span className="text-primary shrink-0">▸</span>
-                    <span className="leading-relaxed">{frag}</span>
+                    <span className="text-primary shrink-0">{'\u25B8'}</span>
+                    <span className="leading-relaxed">{topic.name} ({topic.count} transcripts)</span>
                   </motion.div>
                 ))}
               </div>
@@ -256,7 +234,7 @@ const Index = () => {
             Search through {stats.transcripts} transcripts with AI-powered summaries, chat, and audio on every transcript.
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
-            <Link to="/categories" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-display font-semibold text-sm glow-bitcoin">
+            <Link to="/topics" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-display font-semibold text-sm glow-bitcoin">
               Browse Archive <ArrowRight className="w-4 h-4" />
             </Link>
             <Link to="/conferences" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-border bg-card text-sm font-semibold hover:border-primary/30">

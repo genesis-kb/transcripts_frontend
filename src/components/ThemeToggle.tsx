@@ -13,8 +13,9 @@ export const ThemeToggle = () => {
     >
       <motion.div
         initial={false}
-        animate={{ rotate: theme === "dark" ? 180 : 0 }}
-        transition={{ duration: 0.4, ease: "easeInOut" }}
+        animate={{ scale: [0.8, 1], opacity: [0, 1] }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        key={theme}
       >
         {theme === "dark" ? (
           <Moon className="w-4 h-4 text-signal" />

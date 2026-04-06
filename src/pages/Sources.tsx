@@ -1,10 +1,21 @@
 import { CategorySidebar } from "@/components/CategorySidebar";
-import { conferences } from "@/data/mockData";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { MapPin, FileText } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
+import { getTranscriptMeta, type TranscriptMeta } from "../../services/dataService";
 
 const Sources = () => {
+  const [sources, setSources] = useState<TranscriptMeta["conferences"]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getTranscriptMeta().then((meta) => {
+      setSources(meta.conferences);
+      setLoading(false);
+    });
+  }, []);
+
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8">
       <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono mb-6">
@@ -20,25 +31,36 @@ const Sources = () => {
           <h1 className="font-display text-3xl font-bold mb-2">Sources</h1>
           <p className="text-muted-foreground mb-8">Original sources of transcribed content — conferences, podcasts, meetups, and more.</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {conferences.map((conf, i) => (
-              <motion.div
-                key={conf.slug}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.04 }}
-                className="p-5 rounded-xl border border-border bg-card hover:border-primary/30 transition-all"
-              >
-                <div className="font-display font-semibold text-lg mb-1">{conf.name}</div>
-                <p className="text-sm text-muted-foreground mb-3 leading-relaxed">{conf.description}</p>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
-                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {conf.location}</span>
-                  <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> {conf.sessions} sessions</span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex items-center gap-2 py-8">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground">Loading sources...</span>
+            </div>
+          ) : sources.length === 0 ? (
+            <p className="text-muted-foreground">No sources found.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {sources.map((source, i) => (
+                <Link
+                  key={source.slug}
+                  to={`/search?q=${encodeURIComponent(source.name)}`}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.04 }}
+                    className="p-5 rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer"
+                  >
+                    <div className="font-display font-semibold text-lg mb-1">{source.name}</div>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
+                      <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> {source.sessions} transcripts</span>
+                    </div>
+                  </motion.div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

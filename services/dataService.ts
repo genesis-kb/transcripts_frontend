@@ -146,6 +146,29 @@ export const flattenTalks = (conferences: Conference[]): Talk[] => {
   ) as (Talk & { _conferenceName: string; _conferenceLocation: string; _conferenceYear: number })[];
 };
 
+/**
+ * Fetch aggregated metadata from the database:
+ * speakers, topics, conferences/sources, tags, stats.
+ * Replaces all hardcoded mockData.
+ */
+export interface TranscriptMeta {
+  speakers: { name: string; slug: string; transcriptCount: number; topics: string[] }[];
+  topics: { name: string; slug: string; count: number }[];
+  conferences: { name: string; slug: string; sessions: number; location: string }[];
+  tags: { name: string; count: number }[];
+  stats: { totalTranscripts: number; totalSpeakers: number; totalConferences: number; totalTopics: number };
+}
+
+export const getTranscriptMeta = async (): Promise<TranscriptMeta> => {
+  const empty: TranscriptMeta = { speakers: [], topics: [], conferences: [], tags: [], stats: { totalTranscripts: 0, totalSpeakers: 0, totalConferences: 0, totalTopics: 0 } };
+  try {
+    return await api.get<TranscriptMeta>(config.endpoints.meta);
+  } catch (error) {
+    console.error('Error fetching transcript metadata:', error);
+    return empty;
+  }
+};
+
 export default {
   getConferences,
   getAllTranscripts,
@@ -153,4 +176,5 @@ export default {
   searchTranscripts,
   checkBackendHealth,
   flattenTalks,
+  getTranscriptMeta,
 };
