@@ -11,6 +11,7 @@ export const config = {
   apiUrl: API_BASE_URL,
   endpoints: {
     // Transcripts
+    conferencesSummary: '/api/v1/transcripts/conferences/summary',
     conferences: '/api/v1/transcripts/conferences',
     transcripts: '/api/v1/transcripts',
     search: '/api/v1/transcripts/search',

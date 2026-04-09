@@ -15,7 +15,6 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-// Start server
 const server = app.listen(config.server.port, () => {
   logger.info('='.repeat(50));
   logger.info('Bitcoin Transcripts Backend Server');

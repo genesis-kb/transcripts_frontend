@@ -38,11 +38,16 @@ export interface RawTranscript {
   speakers: string[] | string;
   event_date: string;
   loc: string;
+  conference?: string;
+  channel_name?: string;
   raw_text: string;
   corrected_text: string | null;
   summary: string | null;
   tags: string[];
   categories: string[];
+  status?: string;
+  media_url?: string;
+  duration_seconds?: number;
 }
 
 /**
@@ -69,6 +74,10 @@ export interface SearchResult {
   tags: string[];
   categories: string[];
   summary: string | null;
+  conference?: string;
+  channel_name?: string;
+  status?: string;
+  snippet?: string;
   rank: number;
   headline_title: string;
   headline_content: string;

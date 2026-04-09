@@ -9,24 +9,32 @@ import config from './config';
 import type { Conference, Talk, RawTranscript, SearchResult, PaginatedResponse } from '../types';
 
 /**
- * Fetch all conferences (grouped transcripts)
+ * Fetch lean conference summaries (grouped transcripts, no raw transcript text)
  * @returns Promise with array of conferences
  */
-export const getConferences = async (): Promise<Conference[]> => {
+export const getConferenceSummary = async (): Promise<Conference[]> => {
   try {
-    const conferences = await api.get<Conference[]>(config.endpoints.conferences);
+    const conferences = await api.get<Conference[]>(config.endpoints.conferencesSummary);
     return conferences;
   } catch (error) {
     if (error instanceof APIError) {
-      console.error('API Error fetching conferences:', error.message, error.code);
+      console.error('API Error fetching conference summaries:', error.message, error.code);
       if (error.code === 'CONNECTION_ERROR') {
         console.error('Backend server is not running. Please start the backend with: cd backend && npm run dev');
       }
     } else {
-      console.error('Unexpected error fetching conferences:', error);
+      console.error('Unexpected error fetching conference summaries:', error);
     }
     return [];
   }
+};
+
+/**
+ * Fetch all conferences (compatibility wrapper)
+ * @returns Promise with array of conferences
+ */
+export const getConferences = async (): Promise<Conference[]> => {
+  return getConferenceSummary();
 };
 
 /**
@@ -84,7 +92,7 @@ export const getTranscriptById = async (id: string): Promise<RawTranscript | nul
 export const searchTranscripts = async (
   query: string,
   page: number = 1,
-  limit: number = 20
+  limit: number = 50
 ): Promise<PaginatedResponse<SearchResult>> => {
   const empty: PaginatedResponse<SearchResult> = {
     data: [],
@@ -170,6 +178,7 @@ export const getTranscriptMeta = async (): Promise<TranscriptMeta> => {
 };
 
 export default {
+  getConferenceSummary,
   getConferences,
   getAllTranscripts,
   getTranscriptById,

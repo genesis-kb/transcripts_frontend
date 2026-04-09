@@ -24,6 +24,7 @@ router.get('/', (req, res) => {
     documentation: {
       endpoints: {
         transcripts: {
+          'GET /api/v1/transcripts/conferences/summary': 'Get lean conference summary',
           'GET /api/v1/transcripts': 'Get all raw transcripts',
           'GET /api/v1/transcripts/conferences': 'Get transcripts grouped by conference',
           'GET /api/v1/transcripts/search?q=query': 'Search transcripts',

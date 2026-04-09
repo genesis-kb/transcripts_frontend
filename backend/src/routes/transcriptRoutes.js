@@ -10,6 +10,16 @@ import { asyncHandler, validate, validationRules } from '../middleware/index.js'
 const router = Router();
 
 /**
+ * @route   GET /api/v1/transcripts/conferences/summary
+ * @desc    Get lean conferences summary (no raw transcript text)
+ * @access  Public
+ */
+router.get(
+  '/conferences/summary',
+  asyncHandler(transcriptController.getConferenceSummary)
+);
+
+/**
  * @route   GET /api/v1/transcripts/conferences
  * @desc    Get all conferences (grouped transcripts)
  * @access  Public

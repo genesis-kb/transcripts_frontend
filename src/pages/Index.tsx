@@ -1,13 +1,12 @@
 import { Link } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, Zap, FileText, Users, Headphones, MessageSquare, Globe } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { FeaturedTranscripts } from "@/components/FeaturedTranscripts";
-import { useRef, useState, useEffect, useMemo } from "react";
-import { getConferences } from "../../services/dataService";
-import { getTranscriptMeta, type TranscriptMeta } from "../../services/dataService";
-import type { Conference } from "../../types";
+import { useRef, useMemo } from "react";
+import { useConferences, useMeta } from "@/hooks/useTranscripts";
 
-const StatBlock = ({ icon: Icon, value, label }: { icon: any; value: string; label: string }) => (
+const StatBlock = ({ icon: Icon, value, label }: { icon: LucideIcon; value: string; label: string }) => (
   <div className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card">
     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
       <Icon className="w-5 h-5 text-primary" />
@@ -25,13 +24,8 @@ const Index = () => {
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 100]);
 
-  const [conferences, setConferences] = useState<Conference[]>([]);
-  const [meta, setMeta] = useState<TranscriptMeta | null>(null);
-
-  useEffect(() => {
-    getConferences().then(setConferences);
-    getTranscriptMeta().then(setMeta);
-  }, []);
+  const { data: conferences = [] } = useConferences();
+  const { data: meta } = useMeta();
 
   const stats = useMemo(() => {
     if (meta) {

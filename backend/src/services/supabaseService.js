@@ -46,13 +46,55 @@ const getPool = () => {
  */
 const query = async (text, params = [], timeoutMs = 10000) => {
   const client = await getPool().connect();
+  const startedAt = Date.now();
   try {
     await client.query(`SET statement_timeout = ${timeoutMs}`);
     const result = await client.query(text, params);
+    const durationMs = Date.now() - startedAt;
+    if (durationMs >= 1000) {
+      logger.info('Slow database query completed', {
+        durationMs,
+        rowCount: result.rowCount,
+      });
+    }
     return result;
   } finally {
     client.release();
   }
+};
+
+/**
+ * Fetch conference summaries without raw transcript text
+ * @param {Object} options - Pagination options
+ * @param {number} [options.limit] - Optional result limit
+ * @param {number} [options.offset=0] - Optional result offset
+ * @returns {Promise<Array>} Summary rows
+ */
+export const fetchTranscriptSummaries = async ({ limit, offset = 0 } = {}) => {
+  logger.info('Fetching lean transcript summaries from database...');
+
+  const params = [];
+  let sql = `
+      SELECT id, title, speakers, event_date, conference, channel_name, loc,
+        tags, topics, categories, summary
+    FROM transcripts
+    ORDER BY event_date DESC
+  `;
+
+  if (typeof limit === 'number') {
+    params.push(limit);
+    sql += ` LIMIT $${params.length}`;
+  }
+
+  if (typeof offset === 'number' && offset > 0) {
+    params.push(offset);
+    sql += ` OFFSET $${params.length}`;
+  }
+
+  const result = await query(sql, params);
+
+  logger.info(`Successfully fetched ${result.rows.length} lean transcript rows`);
+  return result.rows;
 };
 
 /**
@@ -342,6 +384,7 @@ export const fetchTranscriptMeta = async () => {
 };
 
 export default {
+  fetchTranscriptSummaries,
   fetchAllTranscripts,
   fetchTranscriptById,
   searchTranscripts,

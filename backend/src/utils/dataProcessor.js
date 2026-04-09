@@ -124,12 +124,16 @@ export const generateConferenceId = (location, year) => {
 /**
  * Transform raw database rows into structured conferences
  * @param {Array} rows - Raw database rows
+ * @param {Object} [options]
+ * @param {boolean} [options.useSummaryTranscript=false] - Use summary text for the transcript field
  * @returns {Array} Structured conference objects
  */
-export const transformToConferences = (rows) => {
+export const transformToConferences = (rows, options = {}) => {
   if (!rows || rows.length === 0) {
     return [];
   }
+
+  const { useSummaryTranscript = false } = options;
 
   const conferencesMap = new Map();
 
@@ -160,7 +164,9 @@ export const transformToConferences = (rows) => {
       conference: row.conference || row.channel_name || '',
       duration: 'N/A',
       date: formattedDate,
-      transcript: getBestTranscriptContent(row),
+      transcript: useSummaryTranscript
+        ? row.summary || ''
+        : getBestTranscriptContent(row),
       summary: row.summary || null,
       tags: processTags(row.tags, row.categories, row.topics),
       transcriptBy: 'BitScribe',

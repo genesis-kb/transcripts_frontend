@@ -1,10 +1,10 @@
 ﻿import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Mic, Calendar, Zap, ChevronRight, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { getConferences } from "../../services/dataService";
-import type { Conference, Talk } from "../../types";
+import { useMemo } from "react";
+import type { Talk } from "../../types";
 import { formatDate } from "@/lib/utils";
+import { useConferences } from "@/hooks/useTranscripts";
 
 const FeaturedHero = ({ talk, conferenceName }: { talk: Talk; conferenceName: string }) => {
   return (
@@ -105,43 +105,14 @@ const CompactCard = ({ talk, conferenceName, index }: { talk: Talk; conferenceNa
 );
 
 export const FeaturedTranscripts = () => {
-  const [allTalks, setAllTalks] = useState<{ talk: Talk; conferenceName: string }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: conferences = [], isLoading, isError } = useConferences();
 
-  useEffect(() => {
-    let cancelled = false;
+  const allTalks = useMemo(
+    () => conferences.flatMap((conf) => conf.talks.map((talk) => ({ talk, conferenceName: conf.name }))),
+    [conferences]
+  );
 
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const conferences = await getConferences();
-
-        if (cancelled) return;
-
-        const talks = conferences.flatMap((conf) =>
-          conf.talks.map((talk) => ({ talk, conferenceName: conf.name }))
-        );
-
-        setAllTalks(talks);
-      } catch (err) {
-        if (!cancelled) {
-          setError("Failed to load transcripts");
-          console.error("Error fetching featured transcripts:", err);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchData();
-    return () => { cancelled = true; };
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <section className="max-w-[1400px] mx-auto px-4 sm:px-6 py-16">
         <div className="flex items-center justify-center gap-3 py-20">
@@ -152,12 +123,12 @@ export const FeaturedTranscripts = () => {
     );
   }
 
-  if (error || allTalks.length === 0) {
+  if (isError || allTalks.length === 0) {
     return (
       <section className="max-w-[1400px] mx-auto px-4 sm:px-6 py-16">
         <div className="text-center py-12">
           <p className="text-muted-foreground text-sm font-mono">
-            {error || "No transcripts available. Please ensure the backend is running."}
+            {isError ? "Failed to load transcripts" : "No transcripts available. Please ensure the backend is running."}
           </p>
         </div>
       </section>

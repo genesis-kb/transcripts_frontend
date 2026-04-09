@@ -11,17 +11,14 @@ import { HighlightToolbar } from "@/components/HighlightToolbar";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
-import { getTranscriptById } from "../../services/dataService";
 import { generateSummary } from "../../services/geminiService";
 import type { RawTranscript } from "../../types";
+import { useTranscript } from "@/hooks/useTranscripts";
 
 type TabType = "summary" | "transcript" | "chat" | "audio";
 
 const TranscriptDetail = () => {
-  const { id } = useParams();
-  const [transcript, setTranscript] = useState<RawTranscript | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const { id } = useParams<{ id: string }>();
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState(false);
@@ -30,34 +27,8 @@ const TranscriptDetail = () => {
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const { getHighlightsForTranscript } = useBookmarks();
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchTranscript = async () => {
-      if (!id) return;
-      setLoading(true);
-      setFetchError(null);
-      try {
-        const data = await getTranscriptById(id);
-        if (!cancelled) {
-          setTranscript(data);
-        }
-      } catch (error) {
-        console.error("Error fetching transcript:", error);
-        if (!cancelled) {
-          setFetchError("Failed to load transcript. Please check your connection and try again.");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchTranscript();
-    return () => { cancelled = true; };
-  }, [id]);
+  const { data, isLoading, error } = useTranscript(id);
+  const transcript = data ?? null;
 
   // Auto-generate AI summary when transcript loads
   useEffect(() => {
@@ -147,7 +118,7 @@ const TranscriptDetail = () => {
     return paragraphs;
   }, [transcriptBody]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-16 text-center">
         <div className="flex items-center justify-center gap-3">
@@ -158,11 +129,11 @@ const TranscriptDetail = () => {
     );
   }
 
-  if (fetchError) {
+  if (error) {
     return (
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-16 text-center">
         <h1 className="font-display text-2xl font-bold mb-2">Unable to load transcript</h1>
-        <p className="text-sm text-muted-foreground mb-4">{fetchError}</p>
+        <p className="text-sm text-muted-foreground mb-4">Failed to load transcript. Please check your connection and try again.</p>
         <button
           onClick={() => window.location.reload()}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:scale-[1.02] transition-transform"

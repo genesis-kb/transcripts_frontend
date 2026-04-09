@@ -29,6 +29,23 @@ export const getConferences = async (req, res) => {
 };
 
 /**
+ * Get lean conference summaries without raw transcript text
+ * GET /api/v1/transcripts/conferences/summary
+ */
+export const getConferenceSummary = async (req, res) => {
+  logger.info('Controller: Getting lean conference summary');
+
+  const limit = req.query.limit ? Math.min(1000, Math.max(1, parseInt(req.query.limit, 10) || 0)) : undefined;
+  const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
+  const rows = await supabaseService.fetchTranscriptSummaries({ limit, offset });
+  const conferences = transformToConferences(rows, { useSummaryTranscript: true });
+
+  res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  sendSuccess(res, conferences);
+};
+
+/**
  * Get all raw transcripts
  * GET /api/v1/transcripts
  */
@@ -102,6 +119,7 @@ export const getMeta = async (req, res) => {
 
 export default {
   getConferences,
+  getConferenceSummary,
   getAllTranscripts,
   getTranscriptById,
   searchTranscripts,

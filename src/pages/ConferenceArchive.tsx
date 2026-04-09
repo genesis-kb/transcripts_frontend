@@ -1,43 +1,13 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { MapPin, Calendar, FileText, ChevronRight, ChevronDown, Users, Loader2 } from "lucide-react";
-import { getConferences } from "../../services/dataService";
-import type { Conference } from "../../types";
 import { formatDate } from "@/lib/utils";
+import { useConferences } from "@/hooks/useTranscripts";
 
 const ConferenceArchive = () => {
-  const [conferences, setConferences] = useState<Conference[]>([]);
-  const [loading, setLoading] = useState(true);
   const [expandedConfs, setExpandedConfs] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getConferences();
-        if (!cancelled) {
-          setConferences(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError("Failed to load conferences");
-          console.error("Error fetching conferences:", err);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchData();
-    return () => { cancelled = true; };
-  }, []);
+  const { data: conferences = [], isLoading, isError } = useConferences();
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8">
@@ -52,20 +22,20 @@ const ConferenceArchive = () => {
         Structured session-wise breakdown of Bitcoin conferences, including key highlights, important discussions, and organized summaries.
       </p>
 
-      {loading && (
+      {isLoading && (
         <div className="flex items-center justify-center gap-3 py-20">
           <Loader2 className="w-5 h-5 text-primary animate-spin" />
           <span className="text-sm text-muted-foreground font-mono">Loading conferences...</span>
         </div>
       )}
 
-      {!loading && error && (
+      {!isLoading && isError && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground text-sm font-mono">{error}</p>
+          <p className="text-muted-foreground text-sm font-mono">Failed to load conferences</p>
         </div>
       )}
 
-      {!loading && !error && conferences.length === 0 && (
+      {!isLoading && !isError && conferences.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground text-sm font-mono">
             No conferences available. Please ensure the backend is running.

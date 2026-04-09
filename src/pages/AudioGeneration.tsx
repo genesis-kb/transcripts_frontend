@@ -1,16 +1,15 @@
-﻿import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef, useMemo } from "react";
 import { Play, Pause, Download, Volume2, SkipForward, SkipBack, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { getConferences } from "../../services/dataService";
 import { generateSpeech, decodeAudioData } from "../../services/geminiService";
-import type { Conference, Talk } from "../../types";
+import { getTranscriptById } from "../../services/dataService";
+import type { Talk } from "../../types";
+import { useConferences } from "@/hooks/useTranscripts";
 
 const AudioGeneration = () => {
-  const [conferences, setConferences] = useState<Conference[]>([]);
-  const [allTalks, setAllTalks] = useState<{ talk: Talk; conferenceName: string }[]>([]);
   const [selectedTalk, setSelectedTalk] = useState<{ talk: Talk; conferenceName: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: conferences = [], isLoading } = useConferences();
 
   // Audio state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -34,47 +33,43 @@ const AudioGeneration = () => {
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
+  const allTalks = useMemo(
+    () => conferences.flatMap((conf) => conf.talks.map((talk) => ({ talk, conferenceName: conf.name }))),
+    [conferences]
+  );
+
   useEffect(() => {
-    let cancelled = false;
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const data = await getConferences();
-        if (cancelled) return;
-        setConferences(data);
-        const talks = data.flatMap((conf) =>
-          conf.talks.map((talk) => ({ talk, conferenceName: conf.name }))
-        );
-        setAllTalks(talks);
-        if (talks.length > 0) {
-          setSelectedTalk(talks[0]);
-        }
-      } catch (err) {
-        console.error("Error fetching data:", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    fetchData();
-    return () => { cancelled = true; };
-  }, []);
+    if (!selectedTalk && allTalks.length > 0) {
+      setSelectedTalk(allTalks[0]);
+    }
+  }, [allTalks, selectedTalk]);
 
   // Cleanup AudioContext and animation frames on unmount
   useEffect(() => {
     return () => {
       cancelAnimationFrame(animFrameRef.current);
       if (sourceNodeRef.current) {
-        try { sourceNodeRef.current.stop(); } catch {}
+        try {
+          sourceNodeRef.current.stop();
+        } catch {
+          // Ignore cleanup errors during teardown.
+        }
       }
       if (audioContextRef.current) {
-        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current.close().catch(() => {
+          // Ignore cleanup errors during teardown.
+        });
       }
     };
   }, []);
 
   const resetAudio = () => {
     if (sourceNodeRef.current) {
-      try { sourceNodeRef.current.stop(); } catch {}
+      try {
+        sourceNodeRef.current.stop();
+      } catch {
+        // Ignore cleanup errors during teardown.
+      }
       sourceNodeRef.current = null;
     }
     cancelAnimationFrame(animFrameRef.current);
@@ -100,7 +95,15 @@ const AudioGeneration = () => {
     setError(null);
 
     try {
-      const textToSpeak = (selectedTalk.talk.summary || selectedTalk.talk.transcript || "").slice(0, 5000);
+      let sourceText = selectedTalk.talk.summary || selectedTalk.talk.transcript || "";
+
+      // On-demand fallback: if lean list data has no usable text, fetch detail payload for this talk.
+      if (!sourceText.trim()) {
+        const detail = await getTranscriptById(selectedTalk.talk.id);
+        sourceText = detail?.summary || detail?.corrected_text || detail?.raw_text || "";
+      }
+
+      const textToSpeak = sourceText.slice(0, 5000);
       if (textToSpeak.trim().length === 0) {
         setError("No text available for audio generation.");
         return;
@@ -166,7 +169,7 @@ const AudioGeneration = () => {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8">
         <div className="flex items-center justify-center gap-3 py-20">
