@@ -31,10 +31,16 @@ export const TranscriptAudio = ({ transcript }: { transcript: RawTranscript }) =
     return () => {
       cancelAnimationFrame(animFrameRef.current);
       if (sourceNodeRef.current) {
-        try { sourceNodeRef.current.stop(); } catch {}
+        try {
+          sourceNodeRef.current.stop();
+        } catch {
+          // Ignore cleanup errors during teardown.
+        }
       }
       if (audioContextRef.current) {
-        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current.close().catch(() => {
+          // Ignore cleanup errors during teardown.
+        });
       }
     };
   }, []);

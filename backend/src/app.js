@@ -7,6 +7,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import compression from 'compression';
 import config from './config/index.js';
 import logger from './config/logger.js';
 import routes from './routes/index.js';
@@ -63,6 +64,9 @@ if (config.server.isDevelopment) {
 } else {
   app.use(morgan('combined', { stream: logger.stream }));
 }
+
+// Response compression
+app.use(compression());
 
 // Rate limiting (applies to all routes)
 app.use('/api', generalLimiter);

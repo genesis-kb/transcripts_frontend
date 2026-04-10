@@ -3,9 +3,9 @@ import { ThemeToggle } from "./ThemeToggle";
 import { Search, Menu, X, Zap, Globe, FileText, Users, Clock, ArrowRight, Bookmark } from "lucide-react";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { searchTranscripts, getConferences } from "../../services/dataService";
-import type { Conference, SearchResult, PaginatedResponse } from "../../types";
+import type { SearchResult, PaginatedResponse } from "../../types";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { useConferences, useSearch } from "@/hooks/useTranscripts";
 
 const navItems = [
   { label: "Explore", path: "/topics" },
@@ -66,20 +66,14 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searchPagination, setSearchPagination] = useState<PaginatedResponse<SearchResult>["pagination"] | null>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches());
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 
   // Get bookmark count for nav badge
   const { totalCount } = useBookmarks();
 
   // Fetch stats for ticker tape
-  const [tickerConferences, setTickerConferences] = useState<Conference[]>([]);
-  useEffect(() => {
-    getConferences().then(setTickerConferences).catch(() => {});
-  }, []);
+  const { data: tickerConferences = [] } = useConferences();
   const tickerStats = useMemo(() => {
     const total = tickerConferences.reduce((s, c) => s + c.talks.length, 0);
     const speakers = new Set(tickerConferences.flatMap((c) => c.talks.map((t) => t.speaker))).size;
@@ -89,6 +83,37 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       speakers: speakers > 0 ? `${speakers}+` : "—",
     };
   }, [tickerConferences]);
+
+  const { data: searchResponse, isFetching: searchLoading } = useSearch(
+    debouncedSearchQuery,
+    searchOpen
+  );
+  const searchResults = searchResponse?.data ?? [];
+  const searchPagination = searchResponse?.pagination ?? null;
+  const isDebouncingSearch = searchQuery.trim().length >= 2 && debouncedSearchQuery !== searchQuery.trim();
+  const isSearching = isDebouncingSearch || searchLoading;
+
+  useEffect(() => {
+    const trimmedQuery = searchQuery.trim();
+
+    if (trimmedQuery.length < 2) {
+      setDebouncedSearchQuery("");
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchQuery(trimmedQuery);
+    }, 350);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (debouncedSearchQuery.length >= 2 && searchResponse) {
+      saveRecentSearch(debouncedSearchQuery);
+      setRecentSearches(getRecentSearches());
+    }
+  }, [debouncedSearchQuery, searchResponse]);
 
   // Keyboard shortcut to open search
   useEffect(() => {
@@ -100,8 +125,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       if (e.key === "Escape") {
         setSearchOpen(false);
         setSearchQuery("");
-        setSearchResults([]);
-        setSearchPagination(null);
+        setDebouncedSearchQuery("");
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -111,55 +135,17 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   // Debounced search
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
-
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-
-    if (query.trim().length < 2) {
-      setSearchResults([]);
-      setSearchPagination(null);
-      setSearchLoading(false);
-      return;
-    }
-
-    setSearchLoading(true);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const response = await searchTranscripts(query);
-        setSearchResults(response.data);
-        setSearchPagination(response.pagination);
-        // Save to recent searches on successful query
-        saveRecentSearch(query);
-        setRecentSearches(getRecentSearches());
-      } catch (error) {
-        console.error("Search error:", error);
-        setSearchResults([]);
-        setSearchPagination(null);
-      } finally {
-        setSearchLoading(false);
-      }
-    }, 350);
-  }, []);
-
-  // Cleanup debounce timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
   }, []);
 
   const handleResultClick = (transcriptId: string) => {
     setSearchOpen(false);
     setSearchQuery("");
-    setSearchResults([]);
-    setSearchPagination(null);
+    setDebouncedSearchQuery("");
     navigate(`/transcript/${transcriptId}`);
   };
 
   const handleRecentSearchClick = (query: string) => {
     setSearchQuery(query);
-    handleSearchChange(query);
   };
 
   const handleClearRecent = () => {
@@ -343,7 +329,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               </div>
               <div className="max-h-[60vh] overflow-y-auto">
                 {/* Skeleton loaders while searching */}
-                {searchLoading && (
+                {isSearching && (
                   <div className="py-2">
                     {[1, 2, 3, 4].map((i) => (
                       <SearchSkeleton key={i} />
@@ -352,7 +338,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 )}
 
                 {/* Recent searches when input is empty/short */}
-                {!searchLoading && searchQuery.trim().length < 2 && (
+                {!isSearching && searchQuery.trim().length < 2 && (
                   <div className="py-4">
                     {recentSearches.length > 0 && (
                       <div className="mb-4">
@@ -395,7 +381,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 )}
 
                 {/* Empty state */}
-                {!searchLoading && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+                {!isSearching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
                   <div className="flex flex-col items-center justify-center gap-3 py-10">
                     <Search className="w-8 h-8 text-muted-foreground/50" />
                     <span className="text-sm text-muted-foreground font-mono">No results found for "{searchQuery}"</span>
@@ -416,7 +402,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 )}
 
                 {/* Search results */}
-                {!searchLoading && searchResults.length > 0 && (
+                {!isSearching && searchResults.length > 0 && (
                   <div className="py-2">
                     {searchPagination && (
                       <div className="px-4 py-1.5 text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
@@ -441,10 +427,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                               {formatSpeakers(result.speakers)}
                             </p>
                           )}
-                          {result.headline_content && (
+                          {(result.headline_content || result.snippet) && (
                             <p
                               className="text-xs text-muted-foreground mt-1 line-clamp-2 [&_mark]:bg-bitcoin/20 [&_mark]:text-bitcoin [&_mark]:rounded-sm [&_mark]:px-0.5"
-                              dangerouslySetInnerHTML={{ __html: result.headline_content }}
+                              dangerouslySetInnerHTML={{ __html: result.headline_content || result.snippet || "" }}
                             />
                           )}
                           {result.event_date && (

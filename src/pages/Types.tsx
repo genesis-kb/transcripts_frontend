@@ -1,20 +1,12 @@
 import { CategorySidebar } from "@/components/CategorySidebar";
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Radio, Loader2, FileText } from "lucide-react";
-import { getTranscriptMeta, type TranscriptMeta } from "../../services/dataService";
+import { useMeta } from "@/hooks/useTranscripts";
 
 const Types = () => {
-  const [tags, setTags] = useState<TranscriptMeta["tags"]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getTranscriptMeta().then((meta) => {
-      setTags(meta.tags);
-      setLoading(false);
-    });
-  }, []);
+  const { data: meta, isLoading } = useMeta();
+  const tags = meta?.tags ?? [];
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8">
@@ -31,7 +23,7 @@ const Types = () => {
           <h1 className="font-display text-3xl font-bold mb-2">Tags</h1>
           <p className="text-muted-foreground mb-8">Browse transcripts by tag.</p>
 
-          {loading ? (
+          {isLoading ? (
             <div className="flex items-center gap-2 py-8">
               <Loader2 className="w-4 h-4 animate-spin text-primary" />
               <span className="text-sm text-muted-foreground">Loading tags...</span>
