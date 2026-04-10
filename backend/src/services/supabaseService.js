@@ -203,19 +203,28 @@ export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => 
 
   logger.info(`FTS searching for: "${sanitized}" (limit=${limit}, offset=${offset})`);
 
+  const ftsVector = `to_tsvector('english',
+      coalesce(title, '') || ' ' ||
+      coalesce(conference, '') || ' ' ||
+      coalesce(channel_name, '') || ' ' ||
+      coalesce(array_to_string(speakers, ' '), '') || ' ' ||
+      coalesce(array_to_string(tags, ' '), '') || ' ' ||
+      coalesce(array_to_string(topics, ' '), '') || ' ' ||
+      coalesce(summary, '') || ' ' ||
+      coalesce(raw_text, '') || ' ' ||
+      coalesce(corrected_text, ''))`;
+
   const [searchResult, countResult] = await Promise.all([
     query(
       `SELECT
         id, title, speakers, event_date, loc, tags, categories,
-        conference, topics, channel_name, status,
-        ts_rank(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(raw_text, '') || ' ' || coalesce(corrected_text, '')),
-                plainto_tsquery('english', $1)) AS rank,
+        conference, topics, channel_name, status, summary,
+        ts_rank(${ftsVector}, plainto_tsquery('english', $1)) AS rank,
         ts_headline('english', coalesce(corrected_text, raw_text, ''),
                     plainto_tsquery('english', $1),
                     'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20') AS snippet
       FROM transcripts
-      WHERE to_tsvector('english', coalesce(title, '') || ' ' || coalesce(raw_text, '') || ' ' || coalesce(corrected_text, ''))
-            @@ plainto_tsquery('english', $1)
+      WHERE ${ftsVector} @@ plainto_tsquery('english', $1)
       ORDER BY rank DESC
       LIMIT $2 OFFSET $3`,
       [sanitized, limit, offset]
@@ -223,8 +232,7 @@ export const searchTranscripts = async (searchQuery, limit = 20, offset = 0) => 
     query(
       `SELECT COUNT(*) AS total
       FROM transcripts
-      WHERE to_tsvector('english', coalesce(title, '') || ' ' || coalesce(raw_text, '') || ' ' || coalesce(corrected_text, ''))
-            @@ plainto_tsquery('english', $1)`,
+      WHERE ${ftsVector} @@ plainto_tsquery('english', $1)`,
       [sanitized]
     ),
   ]);
