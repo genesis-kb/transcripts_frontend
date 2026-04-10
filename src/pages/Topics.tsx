@@ -31,7 +31,7 @@ const Topics = () => {
           ) : topics.length === 0 ? (
             <p className="text-muted-foreground">No topics found.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-stretch">
               {topics.map((topic, i) => (
                 <motion.div
                   key={topic.slug}
@@ -39,10 +39,11 @@ const Topics = () => {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.02 }}
+                  className="h-full"
                 >
                   <Link
-                    to={`/search?q=${encodeURIComponent(topic.name)}`}
-                    className="block p-4 rounded-lg border border-border bg-card hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer"
+                    to={`/search?topic=${encodeURIComponent(topic.name)}`}
+                    className="block p-4 rounded-lg border border-border bg-card hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer h-full min-h-[108px]"
                   >
                     <div className="font-medium text-sm mb-1">{topic.name}</div>
                     <div className="font-mono text-xs text-muted-foreground">{topic.count} transcripts</div>

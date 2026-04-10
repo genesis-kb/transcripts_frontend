@@ -10,15 +10,23 @@ const SearchResults = () => {
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
   const conferenceFilter = searchParams.get("conference") || "";
+  const topicFilter = searchParams.get("topic") || "";
+  const speakerFilter = searchParams.get("speaker") || "";
   const hasQuery = query.trim().length >= 2;
   const hasConferenceFilter = conferenceFilter.trim().length > 0;
+  const hasTopicFilter = topicFilter.trim().length > 0;
+  const hasSpeakerFilter = speakerFilter.trim().length > 0;
+  const normalize = (value: string) => value.trim().toLowerCase();
 
-  const { data: conferences = [], isLoading: conferencesLoading } = useConferences(!hasQuery || hasConferenceFilter);
-  const { data: searchResults, isLoading: searchLoading } = useSearch(query, hasQuery && !hasConferenceFilter);
+  const { data: conferences = [], isLoading: conferencesLoading } = useConferences(!hasQuery || hasConferenceFilter || hasTopicFilter || hasSpeakerFilter);
+  const { data: searchResults, isLoading: searchLoading } = useSearch(query, hasQuery && !hasConferenceFilter && !hasTopicFilter && !hasSpeakerFilter);
 
   const conferenceCards = useMemo(
     () => conferences.flatMap((conf) =>
-      conf.talks.map((talk) => ({ talk, conferenceName: conf.name }))
+      conf.talks.map((talk) => ({
+        talk,
+        conferenceName: talk.conference || conf.name,
+      }))
     ),
     [conferences]
   );
@@ -27,10 +35,32 @@ const SearchResults = () => {
   const filteredByConference = useMemo(
     () => hasConferenceFilter
       ? conferenceCards.filter(({ conferenceName }) =>
-          conferenceName.toLowerCase() === conferenceFilter.toLowerCase()
+          normalize(conferenceName) === normalize(conferenceFilter)
         )
       : conferenceCards,
     [conferenceCards, conferenceFilter, hasConferenceFilter]
+  );
+
+  // Filter by exact tag/topic match when ?topic= param is present
+  const filteredByTopic = useMemo(
+    () => hasTopicFilter
+      ? filteredByConference.filter(({ talk }) =>
+          Array.isArray(talk.topics) && talk.topics.some((topic) => normalize(topic) === normalize(topicFilter))
+        )
+      : filteredByConference,
+    [filteredByConference, hasTopicFilter, topicFilter]
+  );
+
+  // Filter by exact speaker when ?speaker= param is present
+  const filteredBySpeaker = useMemo(
+    () => hasSpeakerFilter
+      ? filteredByTopic.filter(({ talk }) =>
+          Array.isArray(talk.speakers)
+            ? talk.speakers.some((speaker) => normalize(speaker) === normalize(speakerFilter))
+            : normalize(talk.speaker).split(',').map((speaker) => speaker.trim()).includes(normalize(speakerFilter))
+        )
+      : filteredByTopic,
+    [filteredByTopic, hasSpeakerFilter, speakerFilter]
   );
 
   const searchCards = useMemo(
@@ -41,8 +71,8 @@ const SearchResults = () => {
     [searchResults]
   );
 
-  const cards = hasConferenceFilter ? filteredByConference : hasQuery ? searchCards : conferenceCards;
-  const loading = hasConferenceFilter ? conferencesLoading : hasQuery ? searchLoading : conferencesLoading;
+  const cards = hasConferenceFilter || hasTopicFilter || hasSpeakerFilter ? filteredBySpeaker : hasQuery ? searchCards : conferenceCards;
+  const loading = hasConferenceFilter || hasTopicFilter || hasSpeakerFilter ? conferencesLoading : hasQuery ? searchLoading : conferencesLoading;
 
   function mapSearchResultToTalk(result: SearchResult): Talk {
     const speaker = Array.isArray(result.speakers)
@@ -57,6 +87,11 @@ const SearchResults = () => {
       date: result.event_date,
       transcript: result.headline_content || result.snippet || result.summary || "",
       summary: result.summary || result.headline_content || result.snippet || null,
+      speakers: Array.isArray(result.speakers)
+        ? result.speakers
+        : typeof result.speakers === "string" && result.speakers.trim().length > 0
+          ? [result.speakers.trim()]
+          : [],
       tags: [...(result.tags || []), ...(result.categories || [])].filter(Boolean),
       transcriptBy: "BitScribe",
     };
@@ -74,7 +109,15 @@ const SearchResults = () => {
         <div className="flex items-center gap-3 mb-2">
           <Search className="w-6 h-6 text-primary" />
           <h1 className="font-display text-3xl font-bold">
-            {hasConferenceFilter ? conferenceFilter : hasQuery ? `Results for "${query}"` : "All Transcripts"}
+            {hasConferenceFilter
+              ? conferenceFilter
+              : hasTopicFilter
+                ? `Topic: ${topicFilter}`
+                : hasSpeakerFilter
+                  ? `Speaker: ${speakerFilter}`
+                : hasQuery
+                  ? `Results for "${query}"`
+                  : "All Transcripts"}
           </h1>
         </div>
         <p className="text-muted-foreground">
@@ -90,7 +133,7 @@ const SearchResults = () => {
       ) : cards.length === 0 ? (
         <div className="text-center py-16">
           <Search className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-          <p className="text-muted-foreground mb-4">No transcripts match "{hasConferenceFilter ? conferenceFilter : query}"</p>
+          <p className="text-muted-foreground mb-4">No transcripts match "{hasConferenceFilter ? conferenceFilter : hasTopicFilter ? topicFilter : hasSpeakerFilter ? speakerFilter : query}"</p>
           <Link
             to="/conferences"
             className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
@@ -99,7 +142,7 @@ const SearchResults = () => {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
           {cards.map(({ talk, conferenceName }, i) => (
             <TranscriptCard
               key={talk.id}

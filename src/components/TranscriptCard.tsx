@@ -9,14 +9,14 @@ import { BookmarkButton } from "./BookmarkButton";
 export const TranscriptCard = ({ talk, conferenceName, index = 0 }: { talk: Talk; conferenceName?: string; index?: number }) => {
   return (
     <motion.div
-      className="relative"
+      className="relative h-full"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.4 }}
     >
       <Link
         to={`/transcript/${talk.id}`}
-        className="group block p-5 rounded-xl border border-border bg-card hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300"
+        className="group block p-5 rounded-xl border border-border bg-card hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 h-full min-h-[248px] flex flex-col"
       >
         <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono mb-2 pr-8">
           {conferenceName && <span>{conferenceName}</span>}
@@ -37,13 +37,15 @@ export const TranscriptCard = ({ talk, conferenceName, index = 0 }: { talk: Talk
           </span>
         </div>
 
-        {talk.summary && (
-          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mb-3">
-            {stripMarkdown(talk.summary)}
-          </p>
-        )}
+        <div className="min-h-[2.75rem] mb-3">
+          {talk.summary && (
+            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+              {stripMarkdown(talk.summary)}
+            </p>
+          )}
+        </div>
 
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap mt-auto">
           {talk.tags?.slice(0, 4).map((tag) => (
             <span
               key={tag}

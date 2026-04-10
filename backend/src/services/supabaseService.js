@@ -319,22 +319,42 @@ export const fetchTranscriptMeta = async () => {
   const conferenceSet = {};
   const tagSet = {};
 
+  const normalizeLabel = (value) => {
+    if (!value || typeof value !== 'string') return '';
+    return value.trim().replace(/\s+/g, ' ').toLowerCase();
+  };
+
+  const cleanLabel = (value) => {
+    if (!value || typeof value !== 'string') return '';
+    return value.trim().replace(/\s+/g, ' ');
+  };
+
   for (const row of rows) {
     // Speakers
     if (Array.isArray(row.speakers)) {
       for (const s of row.speakers) {
-        if (!s) continue;
-        if (!speakerMap[s]) speakerMap[s] = { name: s, transcriptCount: 0, topics: new Set() };
-        speakerMap[s].transcriptCount++;
-        if (Array.isArray(row.topics)) row.topics.forEach((t) => speakerMap[s].topics.add(t));
+        const speakerName = cleanLabel(s);
+        const speakerKey = normalizeLabel(speakerName);
+        if (!speakerKey) continue;
+        if (!speakerMap[speakerKey]) speakerMap[speakerKey] = { name: speakerName, transcriptCount: 0, topics: new Set() };
+        speakerMap[speakerKey].transcriptCount++;
+        if (Array.isArray(row.topics)) {
+          row.topics.forEach((t) => {
+            const topicName = cleanLabel(t);
+            if (topicName) speakerMap[speakerKey].topics.add(topicName);
+          });
+        }
       }
     }
 
     // Topics
     if (Array.isArray(row.topics)) {
       for (const t of row.topics) {
-        if (!t) continue;
-        topicMap[t] = (topicMap[t] || 0) + 1;
+        const topicName = cleanLabel(t);
+        const topicKey = normalizeLabel(topicName);
+        if (!topicKey) continue;
+        if (!topicMap[topicKey]) topicMap[topicKey] = { name: topicName, count: 0 };
+        topicMap[topicKey].count++;
       }
     }
 
@@ -342,17 +362,21 @@ export const fetchTranscriptMeta = async () => {
     for (const arr of [row.tags, row.topics]) {
       if (Array.isArray(arr)) {
         for (const t of arr) {
-          if (!t) continue;
-          tagSet[t] = (tagSet[t] || 0) + 1;
+          const tagName = cleanLabel(t);
+          const tagKey = normalizeLabel(tagName);
+          if (!tagKey) continue;
+          if (!tagSet[tagKey]) tagSet[tagKey] = { name: tagName, count: 0 };
+          tagSet[tagKey].count++;
         }
       }
     }
 
     // Conferences (from conference or channel_name field)
-    const conf = row.conference || row.channel_name;
-    if (conf) {
-      if (!conferenceSet[conf]) conferenceSet[conf] = { name: conf, count: 0, loc: row.loc };
-      conferenceSet[conf].count++;
+    const confName = cleanLabel(row.conference || row.channel_name);
+    const confKey = normalizeLabel(confName);
+    if (confKey) {
+      if (!conferenceSet[confKey]) conferenceSet[confKey] = { name: confName, count: 0, loc: row.loc };
+      conferenceSet[confKey].count++;
     }
   }
 
@@ -363,7 +387,7 @@ export const fetchTranscriptMeta = async () => {
     topics: [...s.topics].slice(0, 5),
   })).sort((a, b) => b.transcriptCount - a.transcriptCount);
 
-  const topics = Object.entries(topicMap).map(([name, count]) => ({
+  const topics = Object.values(topicMap).map(({ name, count }) => ({
     name,
     slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
     count,
@@ -376,7 +400,7 @@ export const fetchTranscriptMeta = async () => {
     location: c.loc || '',
   })).sort((a, b) => b.sessions - a.sessions);
 
-  const tags = Object.entries(tagSet).map(([name, count]) => ({
+  const tags = Object.values(tagSet).map(({ name, count }) => ({
     name,
     count,
   })).sort((a, b) => b.count - a.count);

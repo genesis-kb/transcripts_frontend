@@ -31,21 +31,22 @@ const Sources = () => {
           ) : sources.length === 0 ? (
             <p className="text-muted-foreground">No sources found.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
               {sources.map((source, i) => (
                 <Link
                   key={source.slug}
                   to={`/search?conference=${encodeURIComponent(source.name)}`}
+                  className="block h-full"
                 >
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.04 }}
-                    className="p-5 rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer"
+                    className="p-5 rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer h-full min-h-[132px] flex flex-col"
                   >
                     <div className="font-display font-semibold text-lg mb-1">{source.name}</div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono mt-auto">
                       <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> {source.sessions} transcripts</span>
                     </div>
                   </motion.div>

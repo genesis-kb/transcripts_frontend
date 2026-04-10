@@ -35,15 +35,15 @@ const Speakers = () => {
               {speakers.map((speaker, i) => (
                 <Link
                   key={speaker.slug}
-                  to={`/search?q=${encodeURIComponent(speaker.name)}`}
-                  className="flex"
+                  to={`/search?speaker=${encodeURIComponent(speaker.name)}`}
+                  className="flex h-full"
                 >
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.04 }}
-                  className="p-5 rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer h-full w-full"
+                  className="p-5 rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer h-full min-h-[164px] w-full flex flex-col"
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -54,7 +54,7 @@ const Speakers = () => {
                       <div className="font-mono text-xs text-muted-foreground">{speaker.transcriptCount} transcripts</div>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5 mt-auto">
                     {speaker.topics.slice(0, 4).map((topic) => (
                       <span key={topic} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-xs font-mono text-muted-foreground">
                         <Tag className="w-2.5 h-2.5" /> {topic}

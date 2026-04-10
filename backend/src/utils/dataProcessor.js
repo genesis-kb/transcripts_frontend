@@ -91,10 +91,21 @@ export const processTags = (tags, categories, topics) => {
   const combined = new Set();
   for (const arr of [topics, tags, categories]) {
     if (Array.isArray(arr)) {
-      arr.forEach((t) => { if (t) combined.add(t); });
+      arr.forEach((t) => {
+        const value = typeof t === 'string' ? t.trim() : '';
+        if (value) combined.add(value);
+      });
     }
   }
   return [...combined];
+};
+
+/**
+ * Normalize free-text labels for deterministic grouping/filtering.
+ */
+const normalizeLabel = (value) => {
+  if (!value || typeof value !== 'string') return '';
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
 };
 
 /**
@@ -142,8 +153,14 @@ export const transformToConferences = (rows, options = {}) => {
     const { year, formattedDate } = parseDate(row.event_date);
 
     // Use actual conference/channel name, fall back to loc
-    const confName = row.conference || row.channel_name || cleanLocation(row.loc);
-    const confId = confName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const confNameRaw = row.conference || row.channel_name || cleanLocation(row.loc);
+    const confName = typeof confNameRaw === 'string' ? confNameRaw.trim() : confNameRaw;
+    const confGroupKey = normalizeLabel(confName);
+    const confId = confGroupKey.replace(/[^a-z0-9]+/g, '-');
+
+    if (!confId) {
+      return;
+    }
 
     // Create conference if it doesn't exist
     if (!conferencesMap.has(confId)) {
@@ -161,13 +178,23 @@ export const transformToConferences = (rows, options = {}) => {
       id: row.id,
       title: row.title || 'Untitled Session',
       speaker: processSpeakers(row.speakers),
-      conference: row.conference || row.channel_name || '',
+      speakers: Array.isArray(row.speakers)
+        ? [...new Set(row.speakers.map((s) => (typeof s === 'string' ? s.trim() : '')).filter(Boolean))]
+        : typeof row.speakers === 'string' && row.speakers.trim()
+          ? [row.speakers.trim()]
+          : [],
+      conference: typeof (row.conference || row.channel_name || '') === 'string'
+        ? (row.conference || row.channel_name || '').trim()
+        : '',
       duration: 'N/A',
       date: formattedDate,
       transcript: useSummaryTranscript
         ? row.summary || ''
         : getBestTranscriptContent(row),
       summary: row.summary || null,
+      topics: Array.isArray(row.topics)
+        ? [...new Set(row.topics.map((t) => (typeof t === 'string' ? t.trim() : '')).filter(Boolean))]
+        : [],
       tags: processTags(row.tags, row.categories, row.topics),
       transcriptBy: 'BitScribe',
     };

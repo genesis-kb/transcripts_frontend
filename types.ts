@@ -10,6 +10,9 @@ export interface Talk {
   id: string;
   title: string;
   speaker: string;
+  speakers?: string[];
+  conference?: string;
+  topics?: string[];
   duration: string;
   date: string;
   transcript: string;
