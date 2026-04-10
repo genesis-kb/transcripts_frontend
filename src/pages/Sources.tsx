@@ -35,7 +35,7 @@ const Sources = () => {
               {sources.map((source, i) => (
                 <Link
                   key={source.slug}
-                  to={`/search?q=${encodeURIComponent(source.name)}`}
+                  to={`/search?conference=${encodeURIComponent(source.name)}`}
                 >
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}

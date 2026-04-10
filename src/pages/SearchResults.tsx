@@ -9,16 +9,28 @@ import { useConferences, useSearch } from "@/hooks/useTranscripts";
 const SearchResults = () => {
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
+  const conferenceFilter = searchParams.get("conference") || "";
   const hasQuery = query.trim().length >= 2;
+  const hasConferenceFilter = conferenceFilter.trim().length > 0;
 
-  const { data: conferences = [], isLoading: conferencesLoading } = useConferences(!hasQuery);
-  const { data: searchResults, isLoading: searchLoading } = useSearch(query, hasQuery);
+  const { data: conferences = [], isLoading: conferencesLoading } = useConferences(!hasQuery || hasConferenceFilter);
+  const { data: searchResults, isLoading: searchLoading } = useSearch(query, hasQuery && !hasConferenceFilter);
 
   const conferenceCards = useMemo(
     () => conferences.flatMap((conf) =>
       conf.talks.map((talk) => ({ talk, conferenceName: conf.name }))
     ),
     [conferences]
+  );
+
+  // Filter by exact conference name when ?conference= param is present
+  const filteredByConference = useMemo(
+    () => hasConferenceFilter
+      ? conferenceCards.filter(({ conferenceName }) =>
+          conferenceName.toLowerCase() === conferenceFilter.toLowerCase()
+        )
+      : conferenceCards,
+    [conferenceCards, conferenceFilter, hasConferenceFilter]
   );
 
   const searchCards = useMemo(
@@ -29,8 +41,8 @@ const SearchResults = () => {
     [searchResults]
   );
 
-  const cards = hasQuery ? searchCards : conferenceCards;
-  const loading = hasQuery ? searchLoading : conferencesLoading;
+  const cards = hasConferenceFilter ? filteredByConference : hasQuery ? searchCards : conferenceCards;
+  const loading = hasConferenceFilter ? conferencesLoading : hasQuery ? searchLoading : conferencesLoading;
 
   function mapSearchResultToTalk(result: SearchResult): Talk {
     const speaker = Array.isArray(result.speakers)
@@ -62,7 +74,7 @@ const SearchResults = () => {
         <div className="flex items-center gap-3 mb-2">
           <Search className="w-6 h-6 text-primary" />
           <h1 className="font-display text-3xl font-bold">
-            {hasQuery ? `Results for "${query}"` : "All Transcripts"}
+            {hasConferenceFilter ? conferenceFilter : hasQuery ? `Results for "${query}"` : "All Transcripts"}
           </h1>
         </div>
         <p className="text-muted-foreground">
@@ -78,7 +90,7 @@ const SearchResults = () => {
       ) : cards.length === 0 ? (
         <div className="text-center py-16">
           <Search className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-          <p className="text-muted-foreground mb-4">No transcripts match "{query}"</p>
+          <p className="text-muted-foreground mb-4">No transcripts match "{hasConferenceFilter ? conferenceFilter : query}"</p>
           <Link
             to="/conferences"
             className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
