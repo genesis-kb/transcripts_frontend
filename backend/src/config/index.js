@@ -62,6 +62,13 @@ const config = {
   // Database configuration (AWS RDS PostgreSQL)
   database: {
     url: process.env.DATABASE_URL || '',
+    poolMax: parseInt(process.env.DB_POOL_MAX, 10) || 10,
+    idleTimeoutMs: parseInt(process.env.DB_IDLE_TIMEOUT_MS, 10) || 30000,
+    connectionTimeoutMs: parseInt(process.env.DB_CONNECT_TIMEOUT_MS, 10) || 30000,
+    statementTimeoutMs: parseInt(process.env.DB_STATEMENT_TIMEOUT_MS, 10) || 15000,
+    queryTimeoutMs: parseInt(process.env.DB_QUERY_TIMEOUT_MS, 10) || 20000,
+    maxRetries: parseInt(process.env.DB_MAX_RETRIES, 10) || 1,
+    retryDelayMs: parseInt(process.env.DB_RETRY_DELAY_MS, 10) || 250,
   },
 
   // Gemini AI configuration
@@ -105,6 +112,27 @@ const config = {
   logging: {
     level: process.env.LOG_LEVEL || 'info',
   },
+
+  // Admin API configuration
+  admin: {
+    jwtSecret: process.env.ADMIN_JWT_SECRET || '',
+    password: process.env.ADMIN_PASSWORD || '',
+    tokenTtl: process.env.ADMIN_TOKEN_TTL || '8h',
+    rateLimit: {
+      windowMs: parseInt(process.env.ADMIN_RATE_LIMIT_WINDOW_MS, 10) || 60000,
+      maxRequests: parseInt(process.env.ADMIN_RATE_LIMIT_MAX_REQUESTS, 10) || 60,
+    },
+  },
 };
+
+if (config.server.isProduction) {
+  if (!config.admin.jwtSecret) {
+    throw new Error('Missing required environment variable: ADMIN_JWT_SECRET');
+  }
+
+  if (!config.admin.password) {
+    throw new Error('Missing required environment variable: ADMIN_PASSWORD');
+  }
+}
 
 export default config;

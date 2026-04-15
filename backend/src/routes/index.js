@@ -7,6 +7,7 @@ import { Router } from 'express';
 import transcriptRoutes from './transcriptRoutes.js';
 import aiRoutes from './aiRoutes.js';
 import healthRoutes from './healthRoutes.js';
+import adminRoutes from './adminRoutes.js';
 
 const router = Router();
 
@@ -14,6 +15,7 @@ const router = Router();
 router.use('/transcripts', transcriptRoutes);
 router.use('/ai', aiRoutes);
 router.use('/health', healthRoutes);
+router.use('/admin', adminRoutes);
 
 // API documentation endpoint
 router.get('/', (req, res) => {
@@ -39,6 +41,14 @@ router.get('/', (req, res) => {
         health: {
           'GET /api/v1/health': 'Basic health check',
           'GET /api/v1/health/detailed': 'Detailed service health check',
+        },
+        admin: {
+          'POST /api/v1/admin/auth/login': 'Admin login',
+          'GET /api/v1/admin/transcripts': 'Admin transcript list',
+          'GET /api/v1/admin/transcripts/:id': 'Admin transcript details',
+          'PUT /api/v1/admin/transcripts/:id': 'Admin transcript update',
+          'DELETE /api/v1/admin/transcripts/:id': 'Admin transcript delete',
+          'GET /api/v1/admin/health': 'Admin health check',
         },
       },
     },

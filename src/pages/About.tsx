@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowRight, BookOpen, Search, Brain, Shield, Zap, Library } from "lucide-react";
+import { useMemo } from "react";
+import { useMeta } from "@/hooks/useTranscripts";
 
 const pillars = [
   { icon: BookOpen, title: "Comprehensive Archive", desc: "Thousands of transcripts from Bitcoin conferences, podcasts, and technical presentations — the largest curated Bitcoin knowledge base available." },
@@ -11,14 +13,21 @@ const pillars = [
   { icon: Library, title: "Open & Accessible", desc: "All transcripts are freely available. Whether you're a beginner or a protocol developer, the archive is built to serve every level of understanding." },
 ];
 
-const stats = [
-  { value: "6,000+", label: "Transcripts" },
-  { value: "500+", label: "Speakers" },
-  { value: "100+", label: "Conferences" },
-  { value: "10+", label: "Years of History" },
-];
-
 const About = () => {
+  const { data: meta } = useMeta();
+
+  const stats = useMemo(() => {
+    const totalTranscripts = meta?.stats?.totalTranscripts ?? 0;
+    const totalSpeakers = meta?.stats?.totalSpeakers ?? 0;
+    const totalConferences = meta?.stats?.totalConferences ?? 0;
+
+    return [
+      { value: totalTranscripts > 0 ? totalTranscripts.toLocaleString() : "-", label: "Transcripts" },
+      { value: totalSpeakers > 0 ? String(totalSpeakers) : "-", label: "Speakers" },
+      { value: totalConferences > 0 ? String(totalConferences) : "-", label: "Conferences" },
+    ];
+  }, [meta]);
+
   return (
     <div>
       {/* Hero section */}
@@ -54,7 +63,7 @@ const About = () => {
       {/* Stats bar */}
       <section className="border-b border-border bg-card">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-x divide-border">
             {stats.map((stat, i) => (
               <motion.div
                 key={stat.label}
@@ -154,7 +163,7 @@ const About = () => {
       <section className="max-w-[1400px] mx-auto px-4 sm:px-6 py-16 text-center">
         <h2 className="font-display text-2xl font-bold mb-3">Start Exploring Bitcoin Knowledge</h2>
         <p className="text-muted-foreground mb-6 max-w-lg mx-auto">
-          Dive into the archive, ask questions with AI chat, or help grow the knowledge base by reviewing transcripts and earning sats.
+          Dive into the archive and help grow the knowledge base by reviewing transcripts and earning sats.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
           <Link
@@ -162,12 +171,6 @@ const About = () => {
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-display font-semibold text-sm glow-bitcoin"
           >
             Browse the Archive <ArrowRight className="w-4 h-4" />
-          </Link>
-          <Link
-            to="/chat"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-border bg-card text-sm font-semibold hover:border-primary/30"
-          >
-            Ask AI a Question
           </Link>
         </div>
       </section>
