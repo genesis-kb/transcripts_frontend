@@ -1,7 +1,7 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import Index from "./pages/Index";
@@ -15,6 +15,14 @@ import Library from "./pages/Library";
 import About from "./pages/About";
 import SearchResults from "./pages/SearchResults";
 import NotFound from "./pages/NotFound";
+import { AuthProvider } from "./admin/AuthContext";
+import { AdminLayout } from "./admin/AdminLayout";
+import LoginPage from "./admin/pages/LoginPage";
+import DashboardPage from "./admin/pages/DashboardPage";
+import TranscriptsPage from "./admin/pages/TranscriptsPage";
+import HealthPage from "./admin/pages/HealthPage";
+import ChannelsPage from "./admin/pages/ChannelsPage.tsx";
+import VideosPage from "./admin/pages/VideosPage.tsx";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,29 +35,47 @@ const queryClient = new QueryClient({
   },
 });
 
+const PublicLayout = () => (
+  <Layout>
+    <Outlet />
+  </Layout>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
-      <BrowserRouter>
-        <ScrollToTop />
-        <Layout>
+      <AuthProvider>
+        <BrowserRouter>
+          <ScrollToTop />
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/categories" element={<Topics />} />
-            <Route path="/topics" element={<Topics />} />
-            <Route path="/speakers" element={<Speakers />} />
-            <Route path="/types" element={<Types />} />
-            <Route path="/sources" element={<Sources />} />
-            <Route path="/transcript/:id" element={<TranscriptDetail />} />
-            <Route path="/search" element={<SearchResults />} />
-            <Route path="/conferences" element={<ConferenceArchive />} />
-            <Route path="/library" element={<Library />} />
-            <Route path="/about" element={<About />} />
-            <Route path="*" element={<NotFound />} />
+            <Route path="/admin/login" element={<LoginPage />} />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<DashboardPage />} />
+              <Route path="transcripts" element={<TranscriptsPage />} />
+              <Route path="channels" element={<ChannelsPage />} />
+              <Route path="videos" element={<VideosPage />} />
+              <Route path="health" element={<HealthPage />} />
+              <Route path="*" element={<DashboardPage />} />
+            </Route>
+
+            <Route path="/" element={<PublicLayout />}>
+              <Route index element={<Index />} />
+              <Route path="categories" element={<Topics />} />
+              <Route path="topics" element={<Topics />} />
+              <Route path="speakers" element={<Speakers />} />
+              <Route path="types" element={<Types />} />
+              <Route path="sources" element={<Sources />} />
+              <Route path="transcript/:id" element={<TranscriptDetail />} />
+              <Route path="search" element={<SearchResults />} />
+              <Route path="conferences" element={<ConferenceArchive />} />
+              <Route path="library" element={<Library />} />
+              <Route path="about" element={<About />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
           </Routes>
-        </Layout>
-      </BrowserRouter>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

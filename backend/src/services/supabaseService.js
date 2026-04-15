@@ -25,9 +25,10 @@ const getPool = () => {
 
     pool = new Pool({
       connectionString: config.database.url,
-      max: 10,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
+      max: config.database.poolMax,
+      idleTimeoutMillis: config.database.idleTimeoutMs,
+      connectionTimeoutMillis: config.database.connectionTimeoutMs,
+      keepAlive: true,
       ssl: { rejectUnauthorized: false },
     });
 
@@ -44,22 +45,57 @@ const getPool = () => {
 /**
  * Execute a query with timeout
  */
-const query = async (text, params = [], timeoutMs = 10000) => {
-  const client = await getPool().connect();
-  const startedAt = Date.now();
-  try {
-    await client.query(`SET statement_timeout = ${timeoutMs}`);
-    const result = await client.query(text, params);
-    const durationMs = Date.now() - startedAt;
-    if (durationMs >= 1000) {
-      logger.info('Slow database query completed', {
-        durationMs,
-        rowCount: result.rowCount,
+export const query = async (text, params = [], timeoutMs = config.database.statementTimeoutMs) => {
+  const isTransientDbTimeout = (error) => {
+    if (!error) return false;
+    const message = String(error.message || '').toLowerCase();
+    return (
+      message.includes('connection terminated due to connection timeout') ||
+      message.includes('timeout expired') ||
+      error.code === 'ETIMEDOUT'
+    );
+  };
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  let attempt = 0;
+  const maxRetries = Math.max(0, config.database.maxRetries);
+
+  while (attempt <= maxRetries) {
+    const client = await getPool().connect();
+    const startedAt = Date.now();
+
+    try {
+      const result = await client.query({
+        text,
+        values: params,
+        query_timeout: Math.max(timeoutMs, config.database.queryTimeoutMs),
       });
+
+      const durationMs = Date.now() - startedAt;
+      if (durationMs >= 1000) {
+        logger.info('Slow database query completed', {
+          durationMs,
+          rowCount: result.rowCount,
+        });
+      }
+
+      return result;
+    } catch (error) {
+      if (attempt < maxRetries && isTransientDbTimeout(error)) {
+        logger.warn('Transient database timeout, retrying query', {
+          attempt: attempt + 1,
+          maxRetries,
+        });
+        await sleep(config.database.retryDelayMs);
+        attempt += 1;
+        continue;
+      }
+
+      throw error;
+    } finally {
+      client.release();
     }
-    return result;
-  } finally {
-    client.release();
   }
 };
 

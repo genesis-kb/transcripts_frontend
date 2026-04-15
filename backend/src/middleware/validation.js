@@ -107,6 +107,113 @@ export const validationRules = {
       .withMessage('Text must be between 1 and 5000 characters')
       .trim(),
   ],
+
+  // Admin login
+  adminLogin: [
+    body('password')
+      .notEmpty()
+      .withMessage('Password is required')
+      .isLength({ min: 8, max: 200 })
+      .withMessage('Password must be between 8 and 200 characters'),
+  ],
+
+  // Admin transcript list
+  adminTranscriptList: [
+    query('page')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('Page must be a positive integer'),
+    query('limit')
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage('Limit must be between 1 and 100'),
+    query('status')
+      .optional()
+      .isIn(['pending', 'processing', 'done'])
+      .withMessage('Status must be one of: pending, processing, done'),
+    query('search')
+      .optional()
+      .isLength({ min: 1, max: 200 })
+      .withMessage('Search must be between 1 and 200 characters')
+      .trim(),
+  ],
+
+  // Admin transcript update
+  adminTranscriptUpdate: [
+    param('id')
+      .notEmpty()
+      .withMessage('Transcript ID is required')
+      .isUUID()
+      .withMessage('Transcript ID must be a valid UUID'),
+    body('title')
+      .optional()
+      .isString()
+      .isLength({ min: 1, max: 500 })
+      .withMessage('Title must be between 1 and 500 characters')
+      .trim(),
+    body('conference')
+      .optional()
+      .isString()
+      .isLength({ max: 255 })
+      .withMessage('Conference must be at most 255 characters')
+      .trim(),
+    body('loc')
+      .optional()
+      .isString()
+      .isLength({ max: 255 })
+      .withMessage('Location must be at most 255 characters')
+      .trim(),
+    body('channel_name')
+      .optional()
+      .isString()
+      .isLength({ max: 255 })
+      .withMessage('Channel name must be at most 255 characters')
+      .trim(),
+    body('speakers')
+      .optional()
+      .isArray()
+      .withMessage('Speakers must be an array'),
+    body('tags')
+      .optional()
+      .isArray()
+      .withMessage('Tags must be an array'),
+    body('categories')
+      .optional()
+      .isArray()
+      .withMessage('Categories must be an array'),
+    body('event_date')
+      .optional({ nullable: true })
+      .isISO8601()
+      .withMessage('Event date must be a valid date'),
+    body('status')
+      .optional()
+      .isIn(['pending', 'processing', 'done'])
+      .withMessage('Status must be one of: pending, processing, done'),
+    body('summary')
+      .optional({ nullable: true })
+      .isString()
+      .isLength({ max: 20000 })
+      .withMessage('Summary must be at most 20000 characters'),
+    body('raw_text')
+      .optional({ nullable: true })
+      .isString()
+      .isLength({ max: 2000000 })
+      .withMessage('Raw text must be at most 2000000 characters'),
+    body('corrected_text')
+      .optional({ nullable: true })
+      .isString()
+      .isLength({ max: 2000000 })
+      .withMessage('Corrected text must be at most 2000000 characters'),
+    body('media_url')
+      .optional({ nullable: true })
+      .isString()
+      .isLength({ max: 1000 })
+      .withMessage('Media URL must be at most 1000 characters'),
+    body('duration_seconds')
+      .optional({ nullable: true })
+      .isInt({ min: 0 })
+      .withMessage('Duration must be a non-negative integer'),
+  ],
 };
 
 export default {
